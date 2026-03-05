@@ -415,7 +415,11 @@
             </div>
             <div id="repoSelectContainer" style="display: none; margin-top: 15px;">
                 <label for="repoSelect" style="font-weight: 500; margin-right: 10px;">Select Repository:</label>
-                <select id="repoSelect" style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0;"></select>
+                <select id="repoSelect"
+                    style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-right: 10px;"></select>
+                <button class="search-btn" id="openIngestBtn" style="background: #10b981; padding: 10px 20px;">
+                    + Ingest New Repository
+                </button>
             </div>
         </div>
 
@@ -446,6 +450,38 @@
         </div>
     </div>
 
+    <!-- Ingest Modal -->
+    <div class="explanation-modal" id="ingestModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title">Ingest Repository</h2>
+                <button class="close-btn" id="closeIngestModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Repository (owner/name)</label>
+                    <input type="text" id="ingestRepoInput" placeholder="e.g., facebook/react"
+                        style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Action</label>
+                    <select id="ingestActionSelect"
+                        style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
+                        <option value="process-all">Full Pipeline (Ingest, Normalize, Extract)</option>
+                        <option value="ingest">Ingest Only</option>
+                        <option value="normalize">Normalize Only</option>
+                        <option value="extract">Extract Only</option>
+                    </select>
+                </div>
+                <button id="startIngestBtn" class="search-btn" style="width: 100%; background: #10b981;">Start
+                    Processing</button>
+                <div id="ingestStatus"
+                    style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: #64748b; display: none;">
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         class WhyEngineUI {
             constructor() {
@@ -463,6 +499,14 @@
                 this.modalTitle = document.getElementById('modalTitle');
                 this.modalBody = document.getElementById('modalBody');
                 this.closeModal = document.getElementById('closeModal');
+
+                this.ingestModal = document.getElementById('ingestModal');
+                this.openIngestBtn = document.getElementById('openIngestBtn');
+                this.closeIngestModal = document.getElementById('closeIngestModal');
+                this.startIngestBtn = document.getElementById('startIngestBtn');
+                this.ingestRepoInput = document.getElementById('ingestRepoInput');
+                this.ingestActionSelect = document.getElementById('ingestActionSelect');
+                this.ingestStatus = document.getElementById('ingestStatus');
 
                 this.network = null; // Vis.js network instance
 
@@ -498,6 +542,68 @@
                 this.modal.addEventListener('click', (e) => {
                     if (e.target === this.modal) this.hideModal();
                 });
+
+                // Ingest modal events
+                this.openIngestBtn.addEventListener('click', () => this.showIngestModal());
+                this.closeIngestModal.addEventListener('click', () => this.hideIngestModal());
+                this.ingestModal.addEventListener('click', (e) => {
+                    if (e.target === this.ingestModal) this.hideIngestModal();
+                });
+                this.startIngestBtn.addEventListener('click', () => this.startIngestion());
+            }
+
+            showIngestModal() {
+                this.ingestModal.style.display = 'block';
+                this.ingestStatus.style.display = 'none';
+            }
+
+            hideIngestModal() {
+                this.ingestModal.style.display = 'none';
+            }
+
+            async startIngestion() {
+                const repository = this.ingestRepoInput.value.trim();
+                const action = this.ingestActionSelect.value;
+
+                if (!repository || !repository.includes('/')) {
+                    this.ingestStatus.textContent = 'Please enter a valid repository (owner/name)';
+                    this.ingestStatus.style.color = '#ef4444';
+                    this.ingestStatus.style.display = 'block';
+                    return;
+                }
+
+                this.startIngestBtn.disabled = true;
+                this.startIngestBtn.textContent = 'Starting...';
+                this.ingestStatus.style.display = 'block';
+                this.ingestStatus.style.color = '#64748b';
+                this.ingestStatus.textContent = 'Sending request...';
+
+                try {
+                    const response = await fetch(`/api/${action}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ repository })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        this.ingestStatus.textContent = result.message || 'Process started in background. Check terminal logs for status.';
+                        this.ingestStatus.style.color = '#10b981';
+                        // Option: reload repositories list after some time or wait for user to refresh
+                    } else {
+                        this.ingestStatus.textContent = result.error || 'Failed to start process';
+                        this.ingestStatus.style.color = '#ef4444';
+                    }
+                } catch (error) {
+                    this.ingestStatus.textContent = 'Network error. Could not reach server.';
+                    this.ingestStatus.style.color = '#ef4444';
+                } finally {
+                    this.startIngestBtn.disabled = false;
+                    this.startIngestBtn.textContent = 'Start Processing';
+                }
             }
 
             async performSearch() {
@@ -662,6 +768,16 @@
                         </div>
                     </div>
                 `).join('');
+            }
+
+            showModal() {
+                this.modal.style.display = 'block';
+                document.body.style.overflow = 'hidden';
+            }
+
+            hideModal() {
+                this.modal.style.display = 'none';
+                document.body.style.overflow = '';
             }
 
             async explainComponent(repository, component) {

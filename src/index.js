@@ -18,7 +18,7 @@ import config from '../config/default.js';
  * This system captures and analyzes engineering decisions from GitHub activity.
  * It follows an 11-phase architecture designed to build organizational memory.
  */
-class DecisionMemorySystem {
+export class DecisionMemorySystem {
   constructor() {
     this.eventStore = new EventStore(config.storage.eventStore);
     this.githubIngester = new GitHubIngester(process.env.GITHUB_TOKEN, this.eventStore);

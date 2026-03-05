@@ -7,10 +7,10 @@ import {
 export class DecisionExtractor {
   constructor(eventStore) {
     this.eventStore = eventStore;
-    // Lazy — see getter below. Do NOT init here; dotenv may not be loaded yet.
+    
   }
 
-  /** Lazy accessor — singleton created on first use, after dotenv.config(). */
+  
   get llm() {
     if (!this._llm) this._llm = getLLMProvider();
     return this._llm;

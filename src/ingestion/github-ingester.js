@@ -20,10 +20,7 @@ export class GitHubIngester {
     this.eventStore = eventStore;
   }
 
-  /**
-   * Ingest all activity for a repository (OPTIMIZED VERSION)
-   * This creates a comprehensive "digital exhaust" capture
-   */
+
   async ingestRepository(owner, repo, options = {}) {
     const {
       maxPRs = 100,        // Limit PRs for faster ingestion

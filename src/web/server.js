@@ -4,6 +4,7 @@ import { dirname, join } from 'path';
 import { EventStore } from '../storage/event-store.js';
 import { WhyEngine } from './why-engine.js';
 import { CodeTracer } from './code-tracer.js';
+import { DecisionMemorySystem } from '../index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -16,6 +17,7 @@ export class WhyServer {
     this.eventStore = new EventStore(config.dbPath || './storage/events.db');
     this.whyEngine = new WhyEngine(this.eventStore);
     this.codeTracer = new CodeTracer(this.eventStore);
+    this.system = new DecisionMemorySystem();
 
     this.setupMiddleware();
     this.setupRoutes();
@@ -133,6 +135,131 @@ export class WhyServer {
       }
     });
 
+    // System processing routes
+
+    // Ingest data from a repository
+    this.app.post('/api/ingest', async (req, res) => {
+      try {
+        const { repository, options } = req.body;
+        if (!repository || !repository.includes('/')) {
+          return res.status(400).json({ error: 'Valid repository (owner/name) required' });
+        }
+
+        const [owner, repo] = repository.split('/');
+
+        // Return 202 Accepted and process in background
+        res.status(202).json({ message: 'Ingestion started in background' });
+
+        try {
+          // Add default options if not provided
+          const ingestOptions = options || {
+            maxPRs: 50,
+            maxCommits: 100,
+            maxIssues: 25,
+            skipComments: true, // Skip comments for speed by default
+            batchSize: 100
+          };
+
+          console.log(`[Web API] Starting background ingestion for ${repository}`);
+          await this.system.ingestRepository(owner, repo, ingestOptions);
+          console.log(`[Web API] Completed background ingestion for ${repository}`);
+        } catch (bgError) {
+          console.error(`[Web API] Background ingestion failed for ${repository}:`, bgError);
+        }
+      } catch (error) {
+        console.error('Ingest API error:', error);
+        res.status(500).json({ error: 'Failed to start ingestion' });
+      }
+    });
+
+    // Normalize events for a repository
+    this.app.post('/api/normalize', async (req, res) => {
+      try {
+        const { repository } = req.body;
+        if (!repository || !repository.includes('/')) {
+          return res.status(400).json({ error: 'Valid repository (owner/name) required' });
+        }
+
+        const [owner, repo] = repository.split('/');
+
+        // Return 202 Accepted and process in background
+        res.status(202).json({ message: 'Normalization started in background' });
+
+        try {
+          console.log(`[Web API] Starting background normalization for ${repository}`);
+          await this.system.normalizeRepository(owner, repo);
+          console.log(`[Web API] Completed background normalization for ${repository}`);
+        } catch (bgError) {
+          console.error(`[Web API] Background normalization failed for ${repository}:`, bgError);
+        }
+      } catch (error) {
+        console.error('Normalize API error:', error);
+        res.status(500).json({ error: 'Failed to start normalization' });
+      }
+    });
+
+    // Extract decisions for a repository
+    this.app.post('/api/extract', async (req, res) => {
+      try {
+        const { repository } = req.body;
+        if (!repository || !repository.includes('/')) {
+          return res.status(400).json({ error: 'Valid repository (owner/name) required' });
+        }
+
+        const [owner, repo] = repository.split('/');
+
+        // Return 202 Accepted and process in background
+        res.status(202).json({ message: 'Extraction started in background' });
+
+        try {
+          console.log(`[Web API] Starting background extraction for ${repository}`);
+          await this.system.extractDecisions(owner, repo);
+          console.log(`[Web API] Completed background extraction for ${repository}`);
+        } catch (bgError) {
+          console.error(`[Web API] Background extraction failed for ${repository}:`, bgError);
+        }
+      } catch (error) {
+        console.error('Extract API error:', error);
+        res.status(500).json({ error: 'Failed to start extraction' });
+      }
+    });
+
+    // Run full pipeline for a repository
+    this.app.post('/api/process-all', async (req, res) => {
+      try {
+        const { repository, options } = req.body;
+        if (!repository || !repository.includes('/')) {
+          return res.status(400).json({ error: 'Valid repository (owner/name) required' });
+        }
+
+        const [owner, repo] = repository.split('/');
+
+        // Return 202 Accepted and process in background
+        res.status(202).json({ message: 'Full pipeline processing started in background' });
+
+        try {
+          const ingestOptions = options || {
+            maxPRs: 50,
+            maxCommits: 100,
+            maxIssues: 25,
+            skipComments: true,
+            batchSize: 100
+          };
+
+          console.log(`[Web API] Starting full pipeline for ${repository}`);
+          await this.system.ingestRepository(owner, repo, ingestOptions);
+          await this.system.normalizeRepository(owner, repo);
+          await this.system.extractDecisions(owner, repo);
+          console.log(`[Web API] Completed full pipeline for ${repository}`);
+        } catch (bgError) {
+          console.error(`[Web API] Background pipeline failed for ${repository}:`, bgError);
+        }
+      } catch (error) {
+        console.error('Process All API error:', error);
+        res.status(500).json({ error: 'Failed to start processing pipeline' });
+      }
+    });
+
     // Health check
     this.app.get('/api/health', (req, res) => {
       res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -141,6 +268,7 @@ export class WhyServer {
 
   async start() {
     await this.eventStore.initialize();
+    await this.system.initialize();
 
     this.app.listen(this.port, () => {
       console.log(`🌐 Why Engine running at http://localhost:${this.port}`);

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -114,9 +115,9 @@
         .connection-line {
             position: absolute;
             height: 1px;
-            background: linear-gradient(90deg, 
-                rgba(100, 200, 255, 0.3), 
-                rgba(100, 200, 255, 0.1));
+            background: linear-gradient(90deg,
+                    rgba(100, 200, 255, 0.3),
+                    rgba(100, 200, 255, 0.1));
             transform-origin: left center;
             pointer-events: none;
         }
@@ -267,7 +268,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Responsive */
@@ -277,19 +280,172 @@
                 right: -100%;
             }
         }
+
+        /* Ingest Action Buttons */
+        .action-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 1000;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 12px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.4);
+            color: #fff;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+        }
+
+        /* Ingest Panel */
+        .ingest-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.95);
+            width: 90%;
+            max-width: 450px;
+            background: rgba(10, 10, 10, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 30px;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+
+        .ingest-panel.active {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+            pointer-events: all;
+        }
+
+        .ingest-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .ingest-title {
+            font-size: 18px;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .ingest-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            cursor: pointer;
+            font-size: 24px;
+            line-height: 1;
+        }
+
+        .ingest-close:hover {
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-input {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .form-select {
+            appearance: none;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .form-select option {
+            background: #111;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .submit-btn:hover {
+            background: rgba(255, 255, 255, 0.9);
+            transform: translateY(-1px);
+        }
+
+        .submit-btn:disabled {
+            background: rgba(255, 255, 255, 0.3);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-message {
+            margin-top: 16px;
+            font-size: 13px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.6);
+            display: none;
+        }
     </style>
 </head>
+
 <body>
     <!-- Search Interface -->
     <div class="search-container" id="searchContainer">
         <div class="search-box">
-            <input 
-                type="text" 
-                class="search-input" 
-                id="searchInput"
-                placeholder="Search for a component, decision, or feature..."
-                autocomplete="off"
-            >
+            <input type="text" class="search-input" id="searchInput"
+                placeholder="Search for a component, decision, or feature..." autocomplete="off">
         </div>
         <div class="search-hint">
             Try: "Redis", "authentication", "microservices"
@@ -311,6 +467,37 @@
         <div>Analyzing decisions...</div>
     </div>
 
+    <!-- Action Buttons -->
+    <div class="action-container">
+        <button class="action-btn" id="openIngestBtn">+ Ingest Data</button>
+    </div>
+
+    <!-- Ingest Panel -->
+    <div class="ingest-panel" id="ingestPanel">
+        <div class="ingest-header">
+            <h2 class="ingest-title">Ingest Repository</h2>
+            <button class="ingest-close" id="closeIngestBtn">&times;</button>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Repository</label>
+            <input type="text" class="form-input" id="ingestRepoInput" placeholder="owner/repo (e.g. facebook/react)">
+        </div>
+
+        <div class="form-group">
+            <label class="form-label">Action</label>
+            <select class="form-select" id="ingestActionSelect">
+                <option value="process-all">Full Pipeline (Ingest, Normalize, Extract)</option>
+                <option value="ingest">Ingest Only</option>
+                <option value="normalize">Normalize Only</option>
+                <option value="extract">Extract Only</option>
+            </select>
+        </div>
+
+        <button class="submit-btn" id="startIngestBtn">Start Processing</button>
+        <div class="status-message" id="ingestStatus"></div>
+    </div>
+
     <script>
         class MinimalDecisionUI {
             constructor() {
@@ -320,30 +507,99 @@
                 this.searchContainer = document.getElementById('searchContainer');
                 this.detailPanel = document.getElementById('detailPanel');
                 this.loading = document.getElementById('loading');
-                
+
+                // Ingest elements
+                this.ingestPanel = document.getElementById('ingestPanel');
+                this.openIngestBtn = document.getElementById('openIngestBtn');
+                this.closeIngestBtn = document.getElementById('closeIngestBtn');
+                this.startIngestBtn = document.getElementById('startIngestBtn');
+                this.ingestRepoInput = document.getElementById('ingestRepoInput');
+                this.ingestActionSelect = document.getElementById('ingestActionSelect');
+                this.ingestStatus = document.getElementById('ingestStatus');
+
                 this.nodes = [];
                 this.connections = [];
                 this.activeNode = null;
                 this.animationFrame = null;
-                
+
                 this.init();
             }
 
             init() {
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
-                
+
                 this.searchInput.addEventListener('input', (e) => this.handleSearch(e));
                 this.searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.performSearch();
                 });
-                
+
                 document.getElementById('closeDetail').addEventListener('click', () => {
                     this.detailPanel.classList.remove('open');
                     this.activeNode = null;
                 });
-                
+
+                // Ingest events
+                this.openIngestBtn.addEventListener('click', () => {
+                    this.ingestPanel.classList.add('active');
+                    this.ingestRepoInput.focus();
+                });
+
+                this.closeIngestBtn.addEventListener('click', () => {
+                    this.ingestPanel.classList.remove('active');
+                });
+
+                this.startIngestBtn.addEventListener('click', () => this.startIngestion());
+
                 this.startAnimation();
+            }
+
+            async startIngestion() {
+                const repository = this.ingestRepoInput.value.trim();
+                const action = this.ingestActionSelect.value;
+
+                if (!repository || !repository.includes('/')) {
+                    this.ingestStatus.textContent = 'Please enter a valid owner/repo format';
+                    this.ingestStatus.style.color = '#ff6b6b';
+                    this.ingestStatus.style.display = 'block';
+                    return;
+                }
+
+                this.startIngestBtn.disabled = true;
+                this.startIngestBtn.textContent = 'Starting...';
+                this.ingestStatus.style.display = 'block';
+                this.ingestStatus.style.color = 'rgba(255, 255, 255, 0.6)';
+                this.ingestStatus.textContent = 'Sending request...';
+
+                try {
+                    const response = await fetch(`/api/${action}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ repository })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        this.ingestStatus.textContent = result.message || 'Process started successfully!';
+                        this.ingestStatus.style.color = '#51cf66';
+
+                        // Auto close after 3 seconds
+                        setTimeout(() => {
+                            this.ingestPanel.classList.remove('active');
+                            this.startIngestBtn.disabled = false;
+                            this.startIngestBtn.textContent = 'Start Processing';
+                            this.ingestStatus.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        throw new Error(result.error || 'Failed to start process');
+                    }
+                } catch (error) {
+                    this.ingestStatus.textContent = error.message || 'Network error occurred';
+                    this.ingestStatus.style.color = '#ff6b6b';
+                    this.startIngestBtn.disabled = false;
+                    this.startIngestBtn.textContent = 'Start Processing';
+                }
             }
 
             resizeCanvas() {
@@ -357,7 +613,7 @@
                     this.clearGraph();
                     return;
                 }
-                
+
                 // Debounce search
                 clearTimeout(this.searchTimeout);
                 this.searchTimeout = setTimeout(() => this.performSearch(), 300);
@@ -374,7 +630,7 @@
                 try {
                     const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
                     const results = await response.json();
-                    
+
                     this.visualizeDecisions(results);
                 } catch (error) {
                     console.error('Search failed:', error);
@@ -385,7 +641,7 @@
 
             visualizeDecisions(results) {
                 this.clearGraph();
-                
+
                 if (results.length === 0) return;
 
                 const centerX = this.canvas.width / 2;
@@ -397,7 +653,7 @@
                     const angle = (index / results.length) * Math.PI * 2;
                     const x = centerX + Math.cos(angle) * radius;
                     const y = centerY + Math.sin(angle) * radius;
-                    
+
                     this.nodes.push({
                         x, y,
                         targetX: x,
@@ -441,13 +697,13 @@
 
             async showDecisionDetail(result) {
                 this.detailPanel.classList.add('open');
-                
+
                 try {
                     const response = await fetch(
                         `/api/why/${encodeURIComponent(result.repository)}/${encodeURIComponent(result.component)}`
                     );
                     const explanation = await response.json();
-                    
+
                     this.renderDetail(explanation);
                 } catch (error) {
                     console.error('Failed to load detail:', error);
@@ -509,21 +765,21 @@
             startAnimation() {
                 const animate = () => {
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                    
+
                     // Draw connections
                     this.connections.forEach(conn => {
-                        const isActive = this.activeNode && 
+                        const isActive = this.activeNode &&
                             (conn.from === this.activeNode || conn.to === this.activeNode);
-                        
+
                         this.ctx.beginPath();
                         this.ctx.moveTo(conn.from.x, conn.from.y);
                         this.ctx.lineTo(conn.to.x, conn.to.y);
-                        this.ctx.strokeStyle = isActive ? 
-                            'rgba(255, 255, 255, 0.6)' : 
+                        this.ctx.strokeStyle = isActive ?
+                            'rgba(255, 255, 255, 0.6)' :
                             'rgba(255, 255, 255, 0.15)';
                         this.ctx.lineWidth = isActive ? 2 : 1;
                         this.ctx.stroke();
-                        
+
                         // Add glow effect for active connections
                         if (isActive) {
                             this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
@@ -531,22 +787,22 @@
                             this.ctx.stroke();
                         }
                     });
-                    
+
                     // Draw nodes
                     this.nodes.forEach(node => {
                         const isActive = this.activeNode === node;
-                        
+
                         // Glow effect
                         const gradient = this.ctx.createRadialGradient(
                             node.x, node.y, 0,
                             node.x, node.y, node.radius * 3
                         );
-                        gradient.addColorStop(0, isActive ? 
-                            'rgba(255, 255, 255, 0.4)' : 
+                        gradient.addColorStop(0, isActive ?
+                            'rgba(255, 255, 255, 0.4)' :
                             'rgba(255, 255, 255, 0.2)'
                         );
                         gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
-                        
+
                         this.ctx.fillStyle = gradient;
                         this.ctx.fillRect(
                             node.x - node.radius * 3,
@@ -554,13 +810,13 @@
                             node.radius * 6,
                             node.radius * 6
                         );
-                        
+
                         // Node circle
                         this.ctx.beginPath();
                         this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
                         this.ctx.fillStyle = '#fff';
                         this.ctx.fill();
-                        
+
                         // Add ring for active node
                         if (isActive) {
                             this.ctx.beginPath();
@@ -570,10 +826,10 @@
                             this.ctx.stroke();
                         }
                     });
-                    
+
                     this.animationFrame = requestAnimationFrame(animate);
                 };
-                
+
                 animate();
             }
 
@@ -591,4 +847,5 @@
         new MinimalDecisionUI();
     </script>
 </body>
+
 </html>
