@@ -213,7 +213,7 @@ export class WhyEngine {
     const nodeIds = new Set();
     const addNode = (id, label, group, title) => {
       if (!nodeIds.has(id)) {
-        nodes.push({ id, label: this.truncateText(label, 30), group, title });
+        nodes.push({ id, label, group, title });
         nodeIds.add(id);
       }
     };
@@ -387,7 +387,7 @@ export class WhyEngine {
     const nodeIds = new Set();
     const addNode = (id, label, group, title) => {
       if (!nodeIds.has(id)) {
-        nodes.push({ id, label: this.truncateText(label, 30), group, title });
+        nodes.push({ id, label, group, title });
         nodeIds.add(id);
       }
     };

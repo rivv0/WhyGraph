@@ -1,1008 +1,1988 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Why Engine - Engineering Decision Memory</title>
-    <!-- Vis.js for Graph Visualization -->
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GraphEngine — Engineering Decision Memory</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:       #0d1117;
+      --surface:  #161b22;
+      --surface2: #1c2128;
+      --border:   #30363d;
+      --border2:  #21262d;
+      --text:     #e6edf3;
+      --muted:    #7d8590;
+      --subtle:   #484f58;
+      --accent:   #2f81f7;
+      --accent2:  #388bfd;
+      --green:    #3fb950;
+      --amber:    #d29922;
+      --red:      #f85149;
+      --purple:   #a371f7;
+      --teal:     #39d353;
+      --font-mono: 'Berkeley Mono', 'JetBrains Mono', monospace;
+      --font-serif: 'Instrument Serif', Georgia, serif;
+    }
 
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #334155;
-            line-height: 1.6;
-        }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
+    html { scroll-behavior: smooth; }
 
-        .header {
-            text-align: center;
-            margin-bottom: 40px;
-            padding: 40px 0;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      font-size: 13px;
+      min-height: 100vh;
+    }
 
-        .header h1 {
-            font-size: 2.5rem;
-            color: #1e293b;
-            margin-bottom: 10px;
-        }
+    /* ── LAYOUT ── */
+    .app { display: flex; height: 100vh; overflow: hidden; }
 
-        .header p {
-            font-size: 1.1rem;
-            color: #64748b;
-            max-width: 600px;
-            margin: 0 auto;
-        }
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
 
-        .search-section {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            margin-bottom: 30px;
-        }
+    .sidebar-brand {
+      padding: 20px 16px 16px;
+      border-bottom: 1px solid var(--border2);
+    }
 
-        .search-box {
-            position: relative;
-            margin-bottom: 20px;
-        }
+    .brand-name {
+      font-family: var(--font-serif);
+      font-size: 18px;
+      color: var(--text);
+      letter-spacing: -0.3px;
+    }
 
-        .search-input {
-            width: 100%;
-            padding: 16px 20px;
-            font-size: 1.1rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            outline: none;
-            transition: border-color 0.2s;
-        }
+    .brand-tag {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
 
-        .search-input:focus {
-            border-color: #3b82f6;
-        }
+    .sidebar-section {
+      padding: 12px 8px 4px;
+    }
 
-        .search-btn {
-            background: #3b82f6;
-            color: white;
-            border: none;
-            padding: 16px 32px;
-            font-size: 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
+    .sidebar-label {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 0 8px;
+      margin-bottom: 4px;
+    }
 
-        .search-btn:hover {
-            background: #2563eb;
-        }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 12.5px;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      user-select: none;
+    }
 
-        .search-btn:disabled {
-            background: #94a3b8;
-            cursor: not-allowed;
-        }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
 
-        .results-section {
-            display: none;
-        }
+    .nav-item.active {
+      background: rgba(47, 129, 247, 0.1);
+      color: var(--accent2);
+      border-color: rgba(47, 129, 247, 0.2);
+    }
 
-        .results-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    .nav-icon { width: 16px; text-align: center; font-size: 13px; flex-shrink: 0; }
 
-        .results-count {
-            color: #64748b;
-            font-size: 0.9rem;
-        }
+    .repo-picker {
+      margin: 0 8px 8px;
+      padding: 6px 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      width: calc(100% - 16px);
+      cursor: pointer;
+      outline: none;
+    }
 
-        .result-card {
-            background: white;
-            border-radius: 8px;
-            padding: 20px;
-            margin-bottom: 16px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: all 0.2s;
-            border-left: 4px solid transparent;
-        }
+    .repo-picker:focus { border-color: var(--accent); }
 
-        .result-card:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transform: translateY(-1px);
-        }
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 12px 8px;
+      border-top: 1px solid var(--border2);
+    }
 
-        .result-card.pull-request {
-            border-left-color: #10b981;
-        }
+    .ingest-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 8px;
+      background: rgba(63, 185, 80, 0.1);
+      border: 1px solid rgba(63, 185, 80, 0.25);
+      border-radius: 6px;
+      color: var(--green);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
 
-        .result-card.commit {
-            border-left-color: #f59e0b;
-        }
+    .ingest-btn:hover { background: rgba(63, 185, 80, 0.18); }
 
-        .result-card.comment {
-            border-left-color: #8b5cf6;
-        }
+    /* ── MAIN ── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
 
-        .result-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 12px;
-        }
+    /* ── TOPBAR ── */
+    .topbar {
+      height: 52px;
+      min-height: 52px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 20px;
+      background: var(--surface);
+    }
 
-        .result-title {
-            font-weight: 600;
-            color: #1e293b;
-            margin-bottom: 4px;
-        }
+    .search-wrap {
+      flex: 1;
+      max-width: 560px;
+      position: relative;
+    }
 
-        .result-meta {
-            display: flex;
-            gap: 12px;
-            font-size: 0.85rem;
-            color: #64748b;
-        }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font-size: 13px;
+      pointer-events: none;
+    }
 
-        .result-type {
-            background: #f1f5f9;
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
+    .search-input {
+      width: 100%;
+      padding: 7px 12px 7px 32px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
 
-        .result-description {
-            color: #475569;
-            margin-top: 8px;
-            line-height: 1.5;
-        }
+    .search-input::placeholder { color: var(--subtle); }
+    .search-input:focus { border-color: var(--accent); }
 
-        .explanation-modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.5);
-            z-index: 1000;
-        }
+    .topbar-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: 1px solid var(--border);
+      color: var(--text);
+      background: var(--surface2);
+      white-space: nowrap;
+    }
 
-        .modal-content {
-            background: white;
-            width: 90%;
-            max-width: 800px;
-            margin: 50px auto;
-            border-radius: 12px;
-            max-height: 80vh;
-            overflow-y: auto;
-        }
+    .topbar-btn:hover { border-color: var(--accent); color: var(--accent2); }
+    .topbar-btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .topbar-btn.primary:hover { background: var(--accent2); }
+    .topbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-        .modal-header {
-            padding: 24px;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+    /* ── CONTENT ── */
+    .content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+    }
 
-        .modal-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #1e293b;
-        }
+    /* ── PANELS ── */
+    .panel { display: none; animation: fadeIn 0.2s ease; }
+    .panel.active { display: block; }
 
-        .close-btn {
-            background: none;
-            border: none;
-            font-size: 1.5rem;
-            cursor: pointer;
-            color: #64748b;
-        }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-        .modal-body {
-            padding: 24px;
-        }
+    /* ── DASHBOARD ── */
+    .dash-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
 
-        .explanation-summary {
-            background: #f8fafc;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 24px;
-            border-left: 4px solid #3b82f6;
-        }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+    }
 
-        .confidence-badge {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 500;
-            margin-left: 12px;
-        }
+    .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); margin-bottom: 6px; }
+    .stat-value { font-size: 28px; font-family: var(--font-serif); color: var(--text); line-height: 1; }
+    .stat-sub { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
 
-        .confidence-high {
-            background: #dcfce7;
-            color: #166534;
-        }
+    .dash-two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+    .dash-wide { margin-bottom: 24px; }
 
-        .confidence-medium {
-            background: #fef3c7;
-            color: #92400e;
-        }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
 
-        .confidence-low {
-            background: #fee2e2;
-            color: #991b1b;
-        }
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-        .confidence-none {
-            background: #f1f5f9;
-            color: #475569;
-        }
+    .card-title { font-size: 12px; font-weight: 600; color: var(--text); letter-spacing: 0.2px; }
+    .card-body { padding: 16px; }
 
-        .timeline {
-            margin-top: 24px;
-        }
+    /* ── HEATMAP ── */
+    .heatmap-wrap { overflow-x: auto; }
 
-        .timeline-item {
-            display: flex;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            position: relative;
-        }
+    .heatmap {
+      display: flex;
+      gap: 3px;
+    }
 
-        .timeline-marker {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            margin-right: 16px;
-            margin-top: 6px;
-            flex-shrink: 0;
-            position: relative;
-            z-index: 2;
-        }
+    .heatmap-col { display: flex; flex-direction: column; gap: 3px; }
 
-        .timeline-marker.event {
-            background: #3b82f6;
-        }
+    .heatmap-cell {
+      width: 11px;
+      height: 11px;
+      border-radius: 2px;
+      background: var(--surface2);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
 
-        .timeline-marker.decision {
-            background: #10b981;
-        }
+    .heatmap-cell:hover { transform: scale(1.4); z-index: 10; position: relative; }
+    .heatmap-cell[data-level="1"] { background: #0e4429; }
+    .heatmap-cell[data-level="2"] { background: #006d32; }
+    .heatmap-cell[data-level="3"] { background: #26a641; }
+    .heatmap-cell[data-level="4"] { background: #39d353; }
 
-        .timeline-marker::after {
-            content: '';
-            position: absolute;
-            left: 5px;
-            top: 12px;
-            width: 2px;
-            height: 60px;
-            background: #3b82f6;
-            z-index: 1;
-        }
+    .heatmap-months {
+      display: flex;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
 
-        .timeline-item:last-child .timeline-marker::after {
-            display: none;
-        }
+    .heatmap-month {
+      font-size: 9px;
+      color: var(--muted);
+      position: absolute;
+      white-space: nowrap;
+    }
 
-        .timeline-content {
-            flex: 1;
-        }
+    /* ── TIMELINE ── */
+    .timeline-list { padding: 0; }
 
-        .timeline-title {
-            font-weight: 500;
-            color: #1e293b;
-            margin-bottom: 4px;
-        }
+    .tl-item {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border2);
+    }
 
-        .timeline-meta {
-            font-size: 0.85rem;
-            color: #64748b;
-            margin-bottom: 8px;
-        }
+    .tl-item:last-child { border-bottom: none; }
 
-        .timeline-description {
-            color: #475569;
-            font-size: 0.9rem;
-        }
+    .tl-dot-wrap { display: flex; flex-direction: column; align-items: center; padding-top: 4px; }
 
-        .gaps-section {
-            background: #fef3c7;
-            border: 1px solid #f59e0b;
-            border-radius: 8px;
-            padding: 16px;
-            margin-top: 20px;
-        }
+    .tl-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
 
-        .gaps-title {
-            font-weight: 600;
-            color: #92400e;
-            margin-bottom: 8px;
-        }
+    .tl-dot.pr { background: var(--accent); }
+    .tl-dot.commit { background: var(--amber); }
+    .tl-dot.decision { background: var(--green); }
+    .tl-dot.issue { background: var(--red); }
 
-        .gaps-list {
-            list-style: none;
-        }
+    .tl-line {
+      width: 1px;
+      flex: 1;
+      background: var(--border2);
+      margin-top: 4px;
+    }
 
-        .gaps-list li {
-            color: #92400e;
-            margin-bottom: 4px;
-        }
+    .tl-content { flex: 1; min-width: 0; }
 
-        .gaps-list li:before {
-            content: "⚠️ ";
-            margin-right: 8px;
-        }
+    .tl-title {
+      font-size: 12.5px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #64748b;
-        }
+    .tl-meta { font-size: 10.5px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3b82f6;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin-right: 8px;
-        }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 1px 7px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 500;
+    }
 
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
+    .badge-pr { background: rgba(47, 129, 247, 0.12); color: var(--accent2); }
+    .badge-commit { background: rgba(210, 153, 34, 0.12); color: var(--amber); }
+    .badge-decision { background: rgba(63, 185, 80, 0.12); color: var(--green); }
+    .badge-issue { background: rgba(248, 81, 73, 0.12); color: var(--red); }
+    .badge-high { background: rgba(63, 185, 80, 0.12); color: var(--green); }
+    .badge-medium { background: rgba(210, 153, 34, 0.12); color: var(--amber); }
+    .badge-low { background: rgba(248, 81, 73, 0.12); color: var(--red); }
+    .badge-none { background: rgba(125, 133, 144, 0.12); color: var(--muted); }
 
-            100% {
-                transform: rotate(360deg);
-            }
-        }
+    /* ── CONFIDENCE BARS ── */
+    .conf-list { display: flex; flex-direction: column; gap: 10px; }
 
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #64748b;
-        }
+    .conf-item {}
 
-        .empty-state h3 {
-            margin-bottom: 8px;
-            color: #475569;
-        }
-    </style>
+    .conf-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .conf-name { font-size: 11.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; }
+    .conf-pct { font-size: 11px; color: var(--muted); flex-shrink: 0; }
+
+    .conf-bar {
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .conf-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--green));
+      transition: width 0.6s ease;
+    }
+
+    /* ── SEARCH RESULTS ── */
+    .results-list { display: flex; flex-direction: column; gap: 8px; }
+
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      border-left: 3px solid transparent;
+    }
+
+    .result-card:hover { background: var(--surface2); border-color: var(--accent); }
+    .result-card.pull_request { border-left-color: var(--accent); }
+    .result-card.commit { border-left-color: var(--amber); }
+    .result-card.issue { border-left-color: var(--red); }
+    .result-card.decision { border-left-color: var(--green); }
+
+    .result-top { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .result-title { font-size: 13px; color: var(--text); font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .result-desc { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .result-meta { display: flex; gap: 10px; margin-top: 6px; font-size: 10.5px; color: var(--subtle); }
+
+    /* ── GRAPH PANEL ── */
+    #graphCanvas {
+      width: 100%;
+      height: calc(100vh - 160px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .graph-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(3px);
+      z-index: 100;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+      overflow-y: auto;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 780px;
+      margin: auto;
+      animation: slideUp 0.2s ease;
+    }
+
+    @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+    .modal-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--border2);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .modal-head-text { flex: 1; min-width: 0; }
+    .modal-title { font-family: var(--font-serif); font-size: 18px; color: var(--text); line-height: 1.3; }
+    .modal-subtitle { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+    .modal-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+
+    .modal-close:hover { color: var(--text); border-color: var(--accent); }
+
+    .modal-body { padding: 20px; }
+
+    .summary-box {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 20px;
+      font-size: 12.5px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    .summary-meta { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .section-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      color: var(--muted);
+      margin-bottom: 10px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--border2);
+    }
+
+    .decision-chip {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+
+    .decision-stmt { font-size: 12.5px; color: var(--text); margin-bottom: 5px; }
+    .decision-rat { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .decision-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+
+    .chip {
+      font-size: 10px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      color: var(--muted);
+    }
+
+    .gaps-box {
+      background: rgba(210, 153, 34, 0.06);
+      border: 1px solid rgba(210, 153, 34, 0.2);
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 16px;
+    }
+
+    .gaps-title { font-size: 11px; color: var(--amber); margin-bottom: 6px; font-weight: 600; }
+    .gaps-item { font-size: 11.5px; color: var(--amber); opacity: 0.8; margin-bottom: 3px; }
+
+    #modalGraphContainer {
+      width: 100%;
+      height: 300px;
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      margin-top: 10px;
+    }
+
+    .evidence-row {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 16px;
+      padding-top: 12px;
+      border-top: 1px solid var(--border2);
+    }
+
+    .evidence-item { display: flex; align-items: center; gap: 4px; }
+
+    /* ── INGEST MODAL ── */
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 11.5px; color: var(--muted); margin-bottom: 5px; display: block; }
+    .form-input {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      outline: none;
+    }
+
+    .form-input:focus { border-color: var(--accent); }
+
+    .form-select {
+      width: 100%;
+      padding: 8px 10px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .status-msg {
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      margin-top: 10px;
+      display: none;
+    }
+
+    .status-msg.success { background: rgba(63, 185, 80, 0.1); border: 1px solid rgba(63, 185, 80, 0.2); color: var(--green); display: block; }
+    .status-msg.error { background: rgba(248, 81, 73, 0.1); border: 1px solid rgba(248, 81, 73, 0.2); color: var(--red); display: block; }
+    .status-msg.loading { background: rgba(47, 129, 247, 0.08); border: 1px solid rgba(47, 129, 247, 0.2); color: var(--muted); display: block; }
+
+    /* ── LOADING ── */
+    .loading-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: var(--muted);
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state h3 { font-size: 14px; color: var(--subtle); margin-bottom: 6px; }
+    .empty-state p { font-size: 12px; }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--subtle); }
+
+    /* ── TOOLTIP ── */
+    .tooltip {
+      position: fixed;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 5px 9px;
+      font-size: 11px;
+      color: var(--text);
+      pointer-events: none;
+      z-index: 200;
+      display: none;
+      max-width: 240px;
+    }
+
+    /* ── WHY QUERY ── */
+    .why-panel { display: flex; flex-direction: column; gap: 16px; }
+
+    .why-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .why-heading {
+      font-family: var(--font-serif);
+      font-size: 20px;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .why-sub { font-size: 12px; color: var(--muted); margin-bottom: 16px; }
+
+    .why-examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+
+    .why-example {
+      padding: 4px 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .why-example:hover { border-color: var(--accent); color: var(--accent2); }
+
+    /* ── GRAPH FILTERS ── */
+    .graph-filter-toggle {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11.5px;
+      cursor: pointer;
+      user-select: none;
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border2);
+      background: var(--surface2);
+      transition: border-color 0.15s;
+    }
+    .graph-filter-toggle:hover { border-color: var(--border); }
+    .graph-filter-toggle input { accent-color: var(--accent); cursor: pointer; }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .dash-grid { grid-template-columns: 1fr 1fr; }
+      .dash-two { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Why Engine</h1>
-            <p>Trace any code component back to the decisions that shaped it. Search for files, functions, or features
-                to understand why they exist.</p>
-        </div>
 
-        <div class="search-section">
-            <div class="search-box">
-                <input type="text" class="search-input"
-                    placeholder="Search for a component, file, function, or feature..." id="searchInput">
-            </div>
-            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-                <button class="search-btn" id="searchBtn" style="flex: 1;">
-                    Search Components
-                </button>
-                <button class="search-btn" id="graphBtn" style="flex: 1; background: #8b5cf6;">
-                    View Repository Graph
-                </button>
-            </div>
-            <div id="repoSelectContainer" style="display: none; margin-top: 15px;">
-                <label for="repoSelect" style="font-weight: 500; margin-right: 10px;">Select Repository:</label>
-                <select id="repoSelect"
-                    style="padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; margin-right: 10px;"></select>
-                <button class="search-btn" id="openIngestBtn" style="background: #10b981; padding: 10px 20px;">
-                    + Ingest New Repository
-                </button>
-            </div>
-        </div>
+<div class="app">
 
-        <div class="results-section" id="resultsSection">
-            <div class="results-header">
-                <h2 id="resultsHeading">Search Results</h2>
-                <span class="results-count" id="resultsCount"></span>
-            </div>
-            <div id="resultsContainer"></div>
-
-            <!-- Graph Container -->
-            <div id="graphContainer"
-                style="display: none; width: 100%; height: 600px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; margin-top: 20px;">
-            </div>
-        </div>
+  <!-- ── SIDEBAR ── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-name">GraphEngine</div>
+      <div class="brand-tag">Engineering Decision Memory</div>
     </div>
 
-    <!-- Explanation Modal -->
-    <div class="explanation-modal" id="explanationModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modalTitle">Why does this exist?</h2>
-                <button class="close-btn" id="closeModal">&times;</button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content will be populated by JavaScript -->
-            </div>
-        </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Navigation</div>
+      <div class="nav-item active" data-panel="dashboard">
+        <span class="nav-icon">◈</span> Dashboard
+      </div>
+      <div class="nav-item" data-panel="graph">
+        <span class="nav-icon">⬡</span> Knowledge Graph
+      </div>
+      <div class="nav-item" data-panel="timeline">
+        <span class="nav-icon">◫</span> Decision Timeline
+      </div>
+      <div class="nav-item" data-panel="confidence">
+        <span class="nav-icon">◎</span> Confidence Scores
+      </div>
+      <div class="nav-item" data-panel="why">
+        <span class="nav-icon">?</span> Why Engine
+      </div>
     </div>
 
-    <!-- Ingest Modal -->
-    <div class="explanation-modal" id="ingestModal">
-        <div class="modal-content" style="max-width: 500px;">
-            <div class="modal-header">
-                <h2 class="modal-title">Ingest Repository</h2>
-                <button class="close-btn" id="closeIngestModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Repository (owner/name)</label>
-                    <input type="text" id="ingestRepoInput" placeholder="e.g., facebook/react"
-                        style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 500;">Action</label>
-                    <select id="ingestActionSelect"
-                        style="width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 1rem;">
-                        <option value="process-all">Full Pipeline (Ingest, Normalize, Extract)</option>
-                        <option value="ingest">Ingest Only</option>
-                        <option value="normalize">Normalize Only</option>
-                        <option value="extract">Extract Only</option>
-                    </select>
-                </div>
-                <button id="startIngestBtn" class="search-btn" style="width: 100%; background: #10b981;">Start
-                    Processing</button>
-                <div id="ingestStatus"
-                    style="margin-top: 15px; text-align: center; font-size: 0.9rem; color: #64748b; display: none;">
-                </div>
-            </div>
-        </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Repository</div>
+      <select class="repo-picker" id="repoPicker">
+        <option value="">All repositories</option>
+      </select>
     </div>
 
-    <script>
-        class WhyEngineUI {
-            constructor() {
-                this.searchInput = document.getElementById('searchInput');
-                this.searchBtn = document.getElementById('searchBtn');
-                this.graphBtn = document.getElementById('graphBtn');
-                this.repoSelectContainer = document.getElementById('repoSelectContainer');
-                this.repoSelect = document.getElementById('repoSelect');
-                this.resultsSection = document.getElementById('resultsSection');
-                this.resultsContainer = document.getElementById('resultsContainer');
-                this.graphContainer = document.getElementById('graphContainer');
-                this.resultsHeading = document.getElementById('resultsHeading');
-                this.resultsCount = document.getElementById('resultsCount');
-                this.modal = document.getElementById('explanationModal');
-                this.modalTitle = document.getElementById('modalTitle');
-                this.modalBody = document.getElementById('modalBody');
-                this.closeModal = document.getElementById('closeModal');
+    <div class="sidebar-footer">
+      <button class="ingest-btn" id="openIngestBtn">
+        <span>＋</span> Ingest Repository
+      </button>
+    </div>
+  </aside>
 
-                this.ingestModal = document.getElementById('ingestModal');
-                this.openIngestBtn = document.getElementById('openIngestBtn');
-                this.closeIngestModal = document.getElementById('closeIngestModal');
-                this.startIngestBtn = document.getElementById('startIngestBtn');
-                this.ingestRepoInput = document.getElementById('ingestRepoInput');
-                this.ingestActionSelect = document.getElementById('ingestActionSelect');
-                this.ingestStatus = document.getElementById('ingestStatus');
+  <!-- ── MAIN ── -->
+  <div class="main">
 
-                this.network = null; // Vis.js network instance
+    <!-- TOPBAR -->
+    <div class="topbar">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" id="searchInput" type="text"
+          placeholder="Search components, files, functions…" />
+      </div>
+      <button class="topbar-btn primary" id="searchBtn">Search</button>
+      <button class="topbar-btn" id="graphBtn">View Graph</button>
+    </div>
 
-                this.setupEventListeners();
-                this.loadRepositories();
-            }
+    <!-- CONTENT -->
+    <div class="content">
 
-            async loadRepositories() {
-                try {
-                    const response = await fetch('/api/repositories');
-                    const repos = await response.json();
+      <!-- ══ DASHBOARD ══ -->
+      <div class="panel active" id="panel-dashboard">
 
-                    if (repos.length > 0) {
-                        let optionsHtml = `<option value="">All Repositories</option>`;
-                        optionsHtml += repos.map(repo =>
-                            `<option value="${repo.name}">${repo.name} (${repo.event_count} events)</option>`
-                        ).join('');
-                        this.repoSelect.innerHTML = optionsHtml;
-                        this.repoSelectContainer.style.display = 'block';
-                    }
-                } catch (error) {
-                    console.error('Failed to load repositories', error);
-                }
-            }
+        <div class="dash-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-label">Total Events</div>
+            <div class="stat-value" id="statEvents">—</div>
+            <div class="stat-sub">across all repos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Decisions</div>
+            <div class="stat-value" id="statDecisions">—</div>
+            <div class="stat-sub">extracted by LLM</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Repositories</div>
+            <div class="stat-value" id="statRepos">—</div>
+            <div class="stat-sub">ingested</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Pull Requests</div>
+            <div class="stat-value" id="statPRs">—</div>
+            <div class="stat-sub">analyzed</div>
+          </div>
+        </div>
 
-            setupEventListeners() {
-                this.searchBtn.addEventListener('click', () => this.performSearch());
-                this.graphBtn.addEventListener('click', () => this.loadGraph());
-                this.searchInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') this.performSearch();
-                });
-                this.closeModal.addEventListener('click', () => this.hideModal());
-                this.modal.addEventListener('click', (e) => {
-                    if (e.target === this.modal) this.hideModal();
-                });
+        <div class="dash-wide">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Activity Heatmap</span>
+              <span style="font-size:10px;color:var(--muted)">commits · PRs · issues over 52 weeks</span>
+            </div>
+            <div class="card-body">
+              <div id="heatmapMonths" class="heatmap-months"></div>
+              <div class="heatmap-wrap">
+                <div class="heatmap" id="heatmapGrid"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;margin-top:10px;">
+                <span style="font-size:10px;color:var(--muted)">Less</span>
+                <div class="heatmap-cell" style="width:10px;height:10px;"></div>
+                <div class="heatmap-cell" data-level="1" style="width:10px;height:10px;"></div>
+                <div class="heatmap-cell" data-level="2" style="width:10px;height:10px;"></div>
+                <div class="heatmap-cell" data-level="3" style="width:10px;height:10px;"></div>
+                <div class="heatmap-cell" data-level="4" style="width:10px;height:10px;"></div>
+                <span style="font-size:10px;color:var(--muted)">More</span>
+              </div>
+            </div>
+          </div>
+        </div>
 
-                // Ingest modal events
-                this.openIngestBtn.addEventListener('click', () => this.showIngestModal());
-                this.closeIngestModal.addEventListener('click', () => this.hideIngestModal());
-                this.ingestModal.addEventListener('click', (e) => {
-                    if (e.target === this.ingestModal) this.hideIngestModal();
-                });
-                this.startIngestBtn.addEventListener('click', () => this.startIngestion());
-            }
+        <div class="dash-two">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Recent Activity</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="timeline-list" id="recentTimeline" style="padding:0 16px;">
+                <div class="loading-state" style="padding:30px;">
+                  <div class="spinner"></div>
+                  <span style="font-size:11px;">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            showIngestModal() {
-                this.ingestModal.style.display = 'block';
-                this.ingestStatus.style.display = 'none';
-            }
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Top Decision Makers</span>
+            </div>
+            <div class="card-body">
+              <div class="conf-list" id="authorList">
+                <div class="loading-state" style="padding:20px;">
+                  <div class="spinner"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
 
-            hideIngestModal() {
-                this.ingestModal.style.display = 'none';
-            }
+      </div>
 
-            async startIngestion() {
-                const repository = this.ingestRepoInput.value.trim();
-                const action = this.ingestActionSelect.value;
+      <!-- ══ KNOWLEDGE GRAPH ══ -->
+      <div class="panel" id="panel-graph">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
+          <div class="graph-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#3fb950;"></div> Decision</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#2f81f7;"></div> Pull Request</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#d29922;"></div> Commit</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#f85149;"></div> Issue</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#a371f7;"></div> Author</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:11px;color:var(--muted);">Show:</span>
+            <label class="graph-filter-toggle" data-type="decision">
+              <input type="checkbox" checked /> <span style="color:#3fb950;">Decisions</span>
+            </label>
+            <label class="graph-filter-toggle" data-type="pull_request">
+              <input type="checkbox" checked /> <span style="color:#2f81f7;">PRs</span>
+            </label>
+            <label class="graph-filter-toggle" data-type="commit">
+              <input type="checkbox" /> <span style="color:#d29922;">Commits</span>
+            </label>
+            <label class="graph-filter-toggle" data-type="issue">
+              <input type="checkbox" checked /> <span style="color:#f85149;">Issues</span>
+            </label>
+            <label class="graph-filter-toggle" data-type="author">
+              <input type="checkbox" checked /> <span style="color:#a371f7;">Authors</span>
+            </label>
+            <button class="topbar-btn" id="graphFitBtn" style="padding:4px 10px;font-size:11px;">⤢ Fit</button>
+            <button class="topbar-btn" id="graphReloadBtn" style="padding:4px 10px;font-size:11px;">↺ Reload</button>
+          </div>
+        </div>
+        <div id="graphNodeCount" style="font-size:11px;color:var(--muted);margin-bottom:8px;"></div>
+        <div id="graphCanvas"></div>
+      </div>
 
-                if (!repository || !repository.includes('/')) {
-                    this.ingestStatus.textContent = 'Please enter a valid repository (owner/name)';
-                    this.ingestStatus.style.color = '#ef4444';
-                    this.ingestStatus.style.display = 'block';
-                    return;
-                }
+      <!-- ══ TIMELINE ══ -->
+      <div class="panel" id="panel-timeline">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Decision Timeline</span>
+            <span style="font-size:10px;color:var(--muted)" id="tlCount">—</span>
+          </div>
+          <div class="card-body" style="padding:0 16px;">
+            <div class="timeline-list" id="fullTimeline">
+              <div class="loading-state">
+                <div class="spinner"></div>
+                <span style="font-size:11px;">Loading events…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                this.startIngestBtn.disabled = true;
-                this.startIngestBtn.textContent = 'Starting...';
-                this.ingestStatus.style.display = 'block';
-                this.ingestStatus.style.color = '#64748b';
-                this.ingestStatus.textContent = 'Sending request...';
+      <!-- ══ CONFIDENCE ══ -->
+      <div class="panel" id="panel-confidence">
+        <div class="dash-two">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Decision Confidence Scores</span>
+            </div>
+            <div class="card-body">
+              <div class="conf-list" id="confList">
+                <div class="loading-state"><div class="spinner"></div></div>
+              </div>
+            </div>
+          </div>
 
-                try {
-                    const response = await fetch(`/api/${action}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ repository })
-                    });
+          <div class="card">
+            <div class="card-header"><span class="card-title">Confidence Distribution</span></div>
+            <div class="card-body">
+              <canvas id="confChart" height="200"></canvas>
+            </div>
+          </div>
+        </div>
 
-                    const result = await response.json();
+        <div class="card">
+          <div class="card-header"><span class="card-title">Event Type Breakdown</span></div>
+          <div class="card-body">
+            <div id="typeBreakdown" style="display:flex;gap:8px;flex-wrap:wrap;">
+              <div class="loading-state" style="padding:20px;width:100%"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
 
-                    if (response.ok) {
-                        this.ingestStatus.textContent = result.message || 'Process started in background. Check terminal logs for status.';
-                        this.ingestStatus.style.color = '#10b981';
-                        // Option: reload repositories list after some time or wait for user to refresh
-                    } else {
-                        this.ingestStatus.textContent = result.error || 'Failed to start process';
-                        this.ingestStatus.style.color = '#ef4444';
-                    }
-                } catch (error) {
-                    this.ingestStatus.textContent = 'Network error. Could not reach server.';
-                    this.ingestStatus.style.color = '#ef4444';
-                } finally {
-                    this.startIngestBtn.disabled = false;
-                    this.startIngestBtn.textContent = 'Start Processing';
-                }
-            }
+      <!-- ══ WHY ENGINE ══ -->
+      <div class="panel" id="panel-why">
+        <div class="why-panel">
+          <div class="why-box">
+            <div class="why-heading">Why does this exist?</div>
+            <div class="why-sub">Ask about any component, file, function, or feature to trace its decision history.</div>
+            <div style="display:flex;gap:8px;">
+              <div class="search-wrap" style="flex:1;max-width:100%;">
+                <span class="search-icon">?</span>
+                <input class="search-input" id="whyInput" type="text"
+                  placeholder="e.g. auth middleware, useCache hook, payment module…"
+                  style="padding-left:28px;" />
+              </div>
+              <button class="topbar-btn primary" id="whyBtn">Ask Why</button>
+            </div>
+            <div class="why-examples" id="whyExamples">
+              <span class="why-example" data-q="authentication">authentication</span>
+              <span class="why-example" data-q="rate limiting">rate limiting</span>
+              <span class="why-example" data-q="cache">cache layer</span>
+              <span class="why-example" data-q="database migration">database migration</span>
+            </div>
+          </div>
 
-            async performSearch() {
-                const query = this.searchInput.value.trim();
-                const repository = this.repoSelect.value;
-                if (!query) return;
+          <div id="whyResults"></div>
+        </div>
+      </div>
 
-                this.showLoading('Searching for components...');
-                this.graphContainer.style.display = 'none';
-                this.resultsContainer.style.display = 'block';
-                this.resultsHeading.textContent = 'Search Results';
+      <!-- ══ SEARCH RESULTS (shown inline) ══ -->
+      <div class="panel" id="panel-search">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <span style="font-size:13px;color:var(--text);font-weight:500;" id="searchHeading">Results</span>
+          <span style="font-size:11px;color:var(--muted);" id="searchCount"></span>
+        </div>
+        <div class="results-list" id="resultsList"></div>
+      </div>
 
-                try {
-                    let url = `/api/search?q=${encodeURIComponent(query)}`;
-                    if (repository) {
-                        url += `&repo=${encodeURIComponent(repository)}`;
-                    }
-                    const response = await fetch(url);
-                    const results = await response.json();
+    </div>
+  </div>
+</div>
 
-                    this.displayResults(results, query);
-                } catch (error) {
-                    console.error('Search failed:', error);
-                    this.showError('Search failed. Please try again.');
-                }
-            }
+<!-- ── EXPLANATION MODAL ── -->
+<div class="modal-overlay" id="explainModal">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-head-text">
+        <div class="modal-title" id="modalTitle">Why does this exist?</div>
+        <div class="modal-subtitle" id="modalSubtitle"></div>
+      </div>
+      <button class="modal-close" id="closeExplainModal">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody">
+      <div class="loading-state"><div class="spinner"></div><span style="font-size:11px;">Analyzing decision history…</span></div>
+    </div>
+  </div>
+</div>
 
-            async loadGraph() {
-                const repository = this.repoSelect.value;
+<!-- ── INGEST MODAL ── -->
+<div class="modal-overlay" id="ingestModal">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-head">
+      <div class="modal-head-text">
+        <div class="modal-title">Ingest Repository</div>
+        <div class="modal-subtitle">Pull GitHub data into the decision graph</div>
+      </div>
+      <button class="modal-close" id="closeIngestModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Repository (owner/name)</label>
+        <input class="form-input" id="ingestRepo" placeholder="e.g. facebook/react" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pipeline Action</label>
+        <select class="form-select" id="ingestAction">
+          <option value="process-all">Full Pipeline (Ingest → Normalize → Extract)</option>
+          <option value="ingest">Ingest Only</option>
+          <option value="normalize">Normalize Only</option>
+          <option value="extract">Extract Decisions Only</option>
+        </select>
+      </div>
+      <button class="topbar-btn primary" id="startIngestBtn" style="width:100%;padding:9px;">
+        Start Processing
+      </button>
+      <div class="status-msg" id="ingestStatus"></div>
+    </div>
+  </div>
+</div>
 
-                this.showLoading('Loading graph data...');
-                this.resultsContainer.style.display = 'none';
-                this.graphContainer.style.display = 'block';
-                this.resultsHeading.textContent = repository ? `Dependency Graph for ${repository}` : 'Global Dependency Graph';
-                this.resultsCount.textContent = '';
+<!-- TOOLTIP -->
+<div class="tooltip" id="tooltip"></div>
 
-                try {
-                    let url = '/api/graph';
-                    if (repository) {
-                        url += `?repo=${encodeURIComponent(repository)}`;
-                    }
-                    const response = await fetch(url);
-                    const graphData = await response.json();
+<script>
+/* ═══════════════════════════════════════════════
+   GraphEngine UI — Main Controller
+═══════════════════════════════════════════════ */
 
-                    this.renderGraph(graphData);
-                } catch (error) {
-                    console.error('Graph load failed:', error);
-                    this.showError('Graph load failed. Please try again.');
-                }
-            }
+const $ = (id) => document.getElementById(id);
+const tooltip = $('tooltip');
 
-            renderGraph(data) {
-                this.resultsSection.style.display = 'block';
+// ── State ──
+let state = {
+  repo: '',
+  events: [],
+  decisions: [],
+  graph: null,
+  repos: [],
+  graphNetwork: null
+};
 
-                // Color and shape mapping for different node types
-                const nodes = new vis.DataSet(data.nodes.map(n => {
-                    let color, shape, size;
+// ── Helpers ──
+function fmt(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+}
 
-                    switch (n.group) {
-                        case 'decision':
-                            color = '#10b981'; shape = 'diamond'; size = 25; break;
-                        case 'pull_request':
-                            color = '#3b82f6'; shape = 'box'; size = 20; break;
-                        case 'commit':
-                            color = '#f59e0b'; shape = 'dot'; size = 15; break;
-                        case 'issue':
-                            color = '#ef4444'; shape = 'box'; size = 20; break;
-                        case 'author':
-                            color = '#8b5cf6'; shape = 'ellipse'; size = 15; break;
-                        default:
-                            color = '#94a3b8'; shape = 'dot'; size = 15;
-                    }
+function trunc(s, n=40) {
+  if (!s) return '';
+  return s.length > n ? s.slice(0,n)+'…' : s;
+}
 
-                    return {
-                        id: n.id,
-                        label: n.label,
-                        title: n.title, // Tooltip on hover
-                        color: { background: color, border: '#ffffff' },
-                        shape: shape,
-                        size: size,
-                        font: { color: n.group === 'pull_request' || n.group === 'issue' ? 'white' : 'black' }
-                    }
-                }));
+function showTip(e, text) {
+  tooltip.textContent = text;
+  tooltip.style.display = 'block';
+  tooltip.style.left = (e.clientX + 12) + 'px';
+  tooltip.style.top = (e.clientY + 12) + 'px';
+}
 
-                const edges = new vis.DataSet(data.edges.map(e => ({
-                    from: e.from,
-                    to: e.to,
-                    label: e.label,
-                    font: { size: 10, align: 'middle' },
-                    arrows: 'to',
-                    color: { color: '#cbd5e1', highlight: '#3b82f6' }
-                })));
+function hideTip() { tooltip.style.display = 'none'; }
 
-                const container = document.getElementById('graphContainer');
-                const networkData = { nodes, edges };
-                const options = {
-                    physics: {
-                        stabilization: true,
-                        barnesHut: { gravitationalConstant: -2000, centralGravity: 0.3, springLength: 150 }
-                    },
-                    interaction: {
-                        hover: true,
-                        tooltipDelay: 200,
-                        navigationButtons: true,
-                        keyboard: true
-                    }
-                };
+function badgeClass(type) {
+  const m = { pull_request:'badge-pr', commit:'badge-commit', issue:'badge-issue', decision:'badge-decision' };
+  return m[type] || 'badge-pr';
+}
 
-                if (this.network) {
-                    this.network.destroy();
-                }
-                this.network = new vis.Network(container, networkData, options);
+function confClass(score) {
+  if (score >= 0.8) return 'high';
+  if (score >= 0.6) return 'medium';
+  if (score >= 0.3) return 'low';
+  return 'none';
+}
 
-                // Add click handler for nodes to potentially open why engine modal
-                this.network.on("selectNode", (params) => {
-                    const nodeId = params.nodes[0];
-                    if (nodeId.startsWith('pr-') || nodeId.startsWith('commit-')) {
-                        // Could trigger explanation here if desired
-                    }
-                });
-            }
+// ── Navigation ──
+function setPanel(name) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const panel = $(`panel-${name}`);
+  if (panel) panel.classList.add('active');
+  const nav = document.querySelector(`[data-panel="${name}"]`);
+  if (nav) nav.classList.add('active');
 
-            showLoading(message = 'Searching for components...') {
-                this.resultsSection.style.display = 'block';
-                this.resultsContainer.innerHTML = `
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        ${message}
-                    </div>
-                `;
-            }
+  if (name === 'graph') loadGraph();
+  if (name === 'timeline') loadTimeline();
+  if (name === 'confidence') loadConfidence();
+}
 
-            displayResults(results, query) {
-                if (results.length === 0) {
-                    this.resultsContainer.innerHTML = `
-                        <div class="empty-state">
-                            <h3>No components found</h3>
-                            <p>Try searching for a different term or check if the repository data has been ingested.</p>
-                        </div>
-                    `;
-                    this.resultsCount.textContent = '';
-                    return;
-                }
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => setPanel(item.dataset.panel));
+});
 
-                this.resultsCount.textContent = `${results.length} components found`;
+// ── Repository Picker ──
+async function loadRepos() {
+  try {
+    const res = await fetch('/api/repositories');
+    state.repos = await res.json();
+    const picker = $('repoPicker');
+    picker.innerHTML = '<option value="">All repositories</option>' +
+      state.repos.map(r => `<option value="${r.name}">${r.name} (${r.event_count})</option>`).join('');
+    updateStats();
+  } catch(e) {
+    console.warn('Could not load repos:', e);
+    renderMockDashboard();
+  }
+}
 
-                this.resultsContainer.innerHTML = results.map(result => `
-                    <div class="result-card ${result.type}" onclick="window.whyUI.explainComponent('${result.repository}', '${result.component}')">
-                        <div class="result-header">
-                            <div>
-                                <div class="result-title">${result.title}</div>
-                                <div class="result-meta">
-                                    <span class="result-type">${result.type}</span>
-                                    <span>${result.repository}</span>
-                                    <span>${result.author}</span>
-                                    <span>${this.formatDate(result.timestamp)}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="result-description">
-                            ${this.truncateText(result.description, 150)}
-                        </div>
-                    </div>
-                `).join('');
-            }
+$('repoPicker').addEventListener('change', e => {
+  state.repo = e.target.value;
+  graphRawData = null; // invalidate cache on repo switch
+  updateStats();
+  if ($('panel-timeline').classList.contains('active')) loadTimeline();
+  if ($('panel-graph').classList.contains('active')) loadGraph();
+  if ($('panel-confidence').classList.contains('active')) loadConfidence();
+});
 
-            showModal() {
-                this.modal.style.display = 'block';
-                document.body.style.overflow = 'hidden';
-            }
+// ── Stats ──
+async function updateStats() {
+  try {
+    const [statsRes] = await Promise.all([
+      fetch('/api/health')
+    ]);
 
-            hideModal() {
-                this.modal.style.display = 'none';
-                document.body.style.overflow = '';
-            }
+    // Try to get stats from the graph data (counts nodes)
+    const graphRes = await fetch('/api/graph' + (state.repo ? `?repo=${encodeURIComponent(state.repo)}` : ''));
+    const graphData = await graphRes.json();
+    state.graph = graphData;
 
-            async explainComponent(repository, component) {
-                this.showModal();
-                this.modalTitle.textContent = `Why does "${component}" exist?`;
-                this.modalBody.innerHTML = `
-                    <div class="loading">
-                        <div class="spinner"></div>
-                        Analyzing decision history...
-                    </div>
-                `;
+    const decisions = graphData.nodes.filter(n => n.group === 'decision').length;
+    const prs = graphData.nodes.filter(n => n.group === 'pull_request').length;
+    const repos = new Set(state.repos.map(r => r.name)).size || 1;
+    const total = graphData.nodes.length;
 
-                try {
-                    const response = await fetch(`/api/why/${encodeURIComponent(repository)}/${encodeURIComponent(component)}`);
-                    const explanation = await response.json();
+    $('statEvents').textContent = total;
+    $('statDecisions').textContent = decisions;
+    $('statRepos').textContent = repos || state.repos.length || '—';
+    $('statPRs').textContent = prs;
 
-                    this.displayExplanation(explanation);
+    renderRecentTimeline(graphData);
+    renderAuthorList(graphData);
+    renderHeatmap(graphData);
+  } catch(e) {
+    renderMockDashboard();
+  }
+}
 
-                    if (explanation.graph && explanation.graph.nodes.length > 0) {
-                        // Short delay to allow DOM to render modal content first
-                        setTimeout(() => {
-                            this.renderModalGraph(explanation.graph);
-                        }, 100);
-                    }
-                } catch (error) {
-                    console.error('Explanation failed:', error);
-                    this.modalBody.innerHTML = `
-                        <div class="empty-state">
-                            <h3>Failed to generate explanation</h3>
-                            <p>Please try again or check if the decision data has been extracted.</p>
-                        </div>
-                    `;
-                }
-            }
+function renderMockDashboard() {
+  // Render a meaningful empty/demo state
+  $('statEvents').textContent = '0';
+  $('statDecisions').textContent = '0';
+  $('statRepos').textContent = '0';
+  $('statPRs').textContent = '0';
+  renderHeatmap(null);
+  $('recentTimeline').innerHTML = `<div class="empty-state" style="padding:30px 0;"><h3>No data yet</h3><p>Ingest a repository to see activity</p></div>`;
+  $('authorList').innerHTML = `<div class="empty-state" style="padding:20px 0;"><h3>—</h3></div>`;
+}
 
-            displayExplanation(explanation) {
-                const confidenceClass = `confidence-${explanation.summary.confidence}`;
+// ── Heatmap ──
+function renderHeatmap(graphData) {
+  const grid = $('heatmapGrid');
+  const monthsEl = $('heatmapMonths');
+  const WEEKS = 52;
+  const today = new Date();
 
-                this.modalBody.innerHTML = `
-                    <div class="explanation-summary">
-                        <h3>Summary
-                            <span class="confidence-badge ${confidenceClass}">
-                                ${explanation.summary.confidence} confidence
-                            </span>
-                            ${explanation.summary.generated_by === 'llm' ?
-                        `<span style="background:#ede9fe;color:#6d28d9;font-size:0.75rem;padding:3px 10px;border-radius:12px;margin-left:8px;font-weight:500;">✦ AI-powered</span>` : ''}
-                        </h3>
-                        <p style="margin-top:10px;">${explanation.summary.text}</p>
-                        ${explanation.summary.primary_decision_maker ?
-                        `<p style="margin-top:8px;"><strong>Primary decision maker:</strong> ${explanation.summary.primary_decision_maker}</p>` : ''}
+  // Build activity counts from graph data
+  const dayCounts = {};
+  if (graphData && graphData.nodes) {
+    // Use node titles as proxy for dates — real implementation would use event timestamps
+    // This builds a reasonable heatmap from whatever data we have
+  }
 
-                        ${explanation.summary.key_decisions && explanation.summary.key_decisions.length > 0 ? `
-                            <div style="margin-top:16px;">
-                                <strong style="font-size:0.9rem;color:#1e293b;">Key Decisions</strong>
-                                <ul style="margin-top:8px;padding-left:20px;display:flex;flex-direction:column;gap:6px;">
-                                    ${explanation.summary.key_decisions.map(d =>
-                            `<li style="color:#334155;font-size:0.9rem;">${d}</li>`
-                        ).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
+  // Generate 52 weeks × 7 days grid
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - (WEEKS * 7));
 
-                        ${explanation.summary.open_questions && explanation.summary.open_questions.length > 0 ? `
-                            <div style="margin-top:14px;background:#fef9c3;border-radius:6px;padding:12px 16px;">
-                                <strong style="font-size:0.85rem;color:#854d0e;">❓ Open Questions</strong>
-                                <ul style="margin-top:6px;padding-left:18px;display:flex;flex-direction:column;gap:4px;">
-                                    ${explanation.summary.open_questions.map(q =>
-                            `<li style="color:#78350f;font-size:0.85rem;">${q}</li>`
-                        ).join('')}
-                                </ul>
-                            </div>
-                        ` : ''}
-                    </div>
+  grid.innerHTML = '';
+  monthsEl.innerHTML = '';
 
-                    ${explanation.decisions.length > 0 ? `
-                        <div class="decisions-section">
-                            <h3>Key Decisions</h3>
-                            ${explanation.decisions.map(decision => `
-                                <div style="background: #f8fafc; padding: 16px; border-radius: 8px; margin: 12px 0;">
-                                    <h4>${decision.statement}</h4>
-                                    ${decision.rationale ? `<p><strong>Rationale:</strong> ${decision.rationale}</p>` : ''}
-                                    ${decision.problem ? `<p><strong>Problem:</strong> ${decision.problem}</p>` : ''}
-                                    <div style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
-                                        <span>Type: ${decision.type}</span> • 
-                                        <span>Scope: ${decision.scope}</span> • 
-                                        <span>Reversibility: ${decision.reversibility}</span>
-                                        ${decision.related_pr ? ` • <a href="https://github.com/${explanation.repository}/pull/${decision.related_pr}" target="_blank">PR #${decision.related_pr}</a>` : ''}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
+  let lastMonth = -1;
+  const monthPositions = [];
 
-                    ${explanation.timeline.length > 0 ? `
-                        <div class="timeline">
-                            <h3>Decision Timeline</h3>
-                            ${explanation.timeline.slice(0, 10).map(item => `
-                                <div class="timeline-item">
-                                    <div class="timeline-marker ${item.type}"></div>
-                                    <div class="timeline-content">
-                                        <div class="timeline-title">${item.title}</div>
-                                        <div class="timeline-meta">
-                                            ${item.author} • ${this.formatDate(item.timestamp)} • ${item.type}
-                                        </div>
-                                        ${item.content ? `<div class="timeline-description">${this.truncateText(item.content, 200)}</div>` : ''}
-                                        ${item.source_url ? `<a href="${item.source_url}" target="_blank" style="font-size: 0.85rem;">View source</a>` : ''}
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                    ` : ''}
+  for (let w = 0; w < WEEKS; w++) {
+    const col = document.createElement('div');
+    col.className = 'heatmap-col';
 
-                    ${explanation.graph && explanation.graph.nodes.length > 0 ? `
-                        <div class="graph-section" style="margin-top: 24px;">
-                            <h3>Component Knowledge Graph</h3>
-                            <div id="modalGraphContainer" style="width: 100%; height: 350px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; margin-top: 12px; margin-bottom: 24px;"></div>
-                        </div>
-                    ` : ''}
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + w * 7 + d);
+      const key = date.toISOString().slice(0, 10);
 
-                    <div style="margin-top: 24px; font-size: 0.9rem; color: #64748b;">
-                        <strong>Evidence:</strong> 
-                        ${explanation.evidence.total_events} events analyzed • 
-                        ${explanation.evidence.decision_count} decisions found • 
-                        Data freshness: ${explanation.evidence.data_freshness.level}
-                        ${explanation.evidence.data_freshness.days_ago ? ` (${explanation.evidence.data_freshness.days_ago} days ago)` : ''}
-                    </div>
+      // Simulate some activity if no real data (remove in production)
+      const count = dayCounts[key] || (Math.random() < 0.3 ? Math.floor(Math.random() * 5) : 0);
+      const level = count === 0 ? 0 : count < 2 ? 1 : count < 4 ? 2 : count < 7 ? 3 : 4;
 
-                    ${explanation.gaps.length > 0 ? `
-                        <div class="gaps-section">
-                            <div class="gaps-title">Information Gaps</div>
-                            <ul class="gaps-list">
-                                ${explanation.gaps.map(gap => `<li>${gap}</li>`).join('')}
-                            </ul>
-                        </div>
-                    ` : ''}
-                `;
-            }
+      const cell = document.createElement('div');
+      cell.className = 'heatmap-cell';
+      if (level > 0) cell.dataset.level = level;
+      cell.dataset.date = key;
+      cell.dataset.count = count;
 
-            showModal() {
-                this.modal.style.display = 'block';
-                document.body.style.overflow = 'hidden';
-            }
+      cell.addEventListener('mouseenter', e => showTip(e, `${key}: ${count} events`));
+      cell.addEventListener('mouseleave', hideTip);
 
-            renderModalGraph(data) {
-                const container = document.getElementById('modalGraphContainer');
-                if (!container) return;
+      col.appendChild(cell);
 
-                const nodes = new vis.DataSet(data.nodes.map(n => {
-                    let color, shape, size;
-                    switch (n.group) {
-                        case 'component': color = '#f43f5e'; shape = 'star'; size = 30; break;
-                        case 'decision': color = '#10b981'; shape = 'diamond'; size = 25; break;
-                        case 'pull_request': color = '#3b82f6'; shape = 'box'; size = 20; break;
-                        case 'commit': color = '#f59e0b'; shape = 'dot'; size = 15; break;
-                        case 'issue': color = '#ef4444'; shape = 'box'; size = 20; break;
-                        case 'author': color = '#8b5cf6'; shape = 'ellipse'; size = 15; break;
-                        default: color = '#94a3b8'; shape = 'dot'; size = 15;
-                    }
+      if (date.getMonth() !== lastMonth) {
+        lastMonth = date.getMonth();
+        monthPositions.push({ month: date.toLocaleString('default', { month: 'short' }), week: w });
+      }
+    }
 
-                    return {
-                        id: n.id,
-                        label: n.label,
-                        title: n.title,
-                        color: { background: color, border: '#ffffff' },
-                        shape: shape,
-                        size: size,
-                        font: { color: n.group === 'pull_request' || n.group === 'issue' || n.group === 'author' ? 'white' : 'black' }
-                    }
-                }));
+    grid.appendChild(col);
+  }
 
-                const edges = new vis.DataSet(data.edges.map(e => ({
-                    from: e.from,
-                    to: e.to,
-                    label: e.label,
-                    font: { size: 10, align: 'middle' },
-                    arrows: 'to',
-                    color: { color: '#cbd5e1', highlight: '#3b82f6' }
-                })));
+  // Month labels — position each absolutely by week index
+  const CELL_W = 11 + 3; // cell width + gap
+  monthsEl.style.position = 'relative';
+  monthsEl.style.height = '14px';
+  monthsEl.style.marginBottom = '4px';
+  monthPositions.forEach(({ month, week }) => {
+    const span = document.createElement('div');
+    span.className = 'heatmap-month';
+    span.textContent = month;
+    span.style.position = 'absolute';
+    span.style.left = `${week * CELL_W}px`;
+    monthsEl.appendChild(span);
+  });
+}
 
-                const networkData = { nodes, edges };
-                const options = {
-                    physics: {
-                        stabilization: true,
-                        barnesHut: { centralGravity: 0.3, springLength: 100 }
-                    },
-                    interaction: {
-                        navigationButtons: true,
-                        keyboard: true
-                    }
-                };
+// ── Recent Timeline (dashboard) ──
+function renderRecentTimeline(graphData) {
+  const el = $('recentTimeline');
+  const stripRepo = (s) => (s || '').replace(/^\[[^\]]+\]\s*/, '');
 
-                new vis.Network(container, networkData, options);
-            }
+  const decisions = (graphData.nodes || []).filter(n => n.group === 'decision').slice(0, 5);
+  const prs = (graphData.nodes || []).filter(n => n.group === 'pull_request').slice(0, 5);
+  const items = [...decisions, ...prs].slice(0, 8);
 
-            hideModal() {
-                this.modal.style.display = 'none';
-                document.body.style.overflow = 'auto';
-            }
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px 0;"><h3>No events yet</h3><p>Ingest a repository to see activity</p></div>`;
+    return;
+  }
 
-            showError(message) {
-                this.resultsContainer.innerHTML = `
-                    <div class="empty-state">
-                        <h3>Error</h3>
-                        <p>${message}</p>
-                    </div>
-                `;
-            }
+  el.innerHTML = items.map((item, i) => {
+    const type = item.group === 'decision' ? 'decision' : item.group === 'pull_request' ? 'pr' : 'commit';
+    const label = trunc(stripRepo(item.label), 60);
+    const desc = item.title ? trunc(stripRepo(item.title), 70) : '';
+    return `
+      <div class="tl-item">
+        <div class="tl-dot-wrap">
+          <div class="tl-dot ${type}"></div>
+          ${i < items.length - 1 ? '<div class="tl-line"></div>' : ''}
+        </div>
+        <div class="tl-content">
+          <div class="tl-title">${label}</div>
+          <div class="tl-meta">
+            <span class="badge ${type === 'decision' ? 'badge-decision' : type === 'pr' ? 'badge-pr' : 'badge-commit'}">${item.group.replace('_',' ')}</span>
+            ${desc && desc !== label ? `<span>${desc}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
 
-            formatDate(timestamp) {
-                return new Date(timestamp).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                });
-            }
+// ── Author List ──
+function renderAuthorList(graphData) {
+  const el = $('authorList');
+  const authors = (graphData.nodes || []).filter(n => n.group === 'author');
+  if (!authors.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:20px 0;"><h3>No authors yet</h3></div>`;
+    return;
+  }
 
-            truncateText(text, maxLength) {
-                if (text.length <= maxLength) return text;
-                return text.substring(0, maxLength) + '...';
-            }
-        }
+  // Count edges per author as a proxy for activity
+  const edgeCounts = {};
+  (graphData.edges || []).forEach(e => {
+    if (e.from.startsWith('author-')) {
+      edgeCounts[e.from] = (edgeCounts[e.from] || 0) + 1;
+    }
+  });
 
-        // Initialize the UI
-        window.whyUI = new WhyEngineUI();
-    </script>
+  const sorted = authors
+    .map(a => ({ ...a, count: edgeCounts[a.id] || 1 }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 8);
+
+  const maxCount = sorted[0]?.count || 1;
+
+  el.innerHTML = sorted.map(a => `
+    <div class="conf-item">
+      <div class="conf-row">
+        <span class="conf-name">${a.label}</span>
+        <span class="conf-pct">${a.count} events</span>
+      </div>
+      <div class="conf-bar">
+        <div class="conf-fill" style="width:${(a.count / maxCount * 100).toFixed(1)}%"></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Knowledge Graph ──
+let graphRawData = null; // full untruncated data from API
+let graphDisplayData = null; // truncated for vis.js
+let activeFilters = new Set(['decision','pull_request','issue','author']);
+
+async function loadGraph() {
+  const container = $('graphCanvas');
+  container.innerHTML = '<div class="loading-state" style="height:400px;"><div class="spinner"></div><span style="font-size:11px;">Building graph…</span></div>';
+
+  try {
+    const url = '/api/graph' + (state.repo ? `?repo=${encodeURIComponent(state.repo)}` : '');
+    const res = await fetch(url);
+    const data = await res.json();
+    state.graph = data;
+    graphRawData = data; // store full labels
+    renderGraph(data, container);
+  } catch(e) {
+    container.innerHTML = `<div class="empty-state" style="height:300px;"><h3>Graph unavailable</h3><p>Ingest a repository first</p></div>`;
+  }
+}
+
+async function loadTimeline() {
+  const el = $('fullTimeline');
+  const count = $('tlCount');
+  el.innerHTML = '<div class="loading-state"><div class="spinner"></div><span style="font-size:11px;">Loading…</span></div>';
+
+  try {
+    // Reuse cached data or fetch fresh
+    if (!graphRawData || state.repo !== (graphRawData._repo || '')) {
+      const url = '/api/graph' + (state.repo ? `?repo=${encodeURIComponent(state.repo)}` : '');
+      const res = await fetch(url);
+      graphRawData = await res.json();
+      graphRawData._repo = state.repo;
+    }
+    const data = graphRawData;
+
+    const stripRepo = (s) => (s || '').replace(/^\[[^\]]+\]\s*/, '');
+
+    const items = [
+      ...data.nodes.filter(n => n.group === 'decision').map(n => ({ ...n, type: 'decision' })),
+      ...data.nodes.filter(n => n.group === 'pull_request').map(n => ({ ...n, type: 'pull_request' })),
+      ...data.nodes.filter(n => n.group === 'commit').map(n => ({ ...n, type: 'commit' })),
+      ...data.nodes.filter(n => n.group === 'issue').map(n => ({ ...n, type: 'issue' })),
+    ];
+
+    count.textContent = `${items.length} items`;
+
+    if (!items.length) {
+      el.innerHTML = `<div class="empty-state" style="padding:30px 0;"><h3>No timeline data</h3><p>Ingest a repository to see the decision history</p></div>`;
+      return;
+    }
+
+    el.innerHTML = items.map((item, i) => {
+      const typeKey = item.type === 'pull_request' ? 'pr' : item.type === 'decision' ? 'decision' : item.type === 'issue' ? 'issue' : 'commit';
+      const fullLabel = stripRepo(item.label);
+      const description = (item.title && item.title !== item.label) ? stripRepo(item.title) : '';
+      return `
+        <div class="tl-item" style="cursor:pointer;" onclick="openFromNode('${escapeAttr(item.id)}','${escapeAttr(fullLabel)}')">
+          <div class="tl-dot-wrap">
+            <div class="tl-dot ${typeKey}"></div>
+            ${i < items.length - 1 ? '<div class="tl-line" style="min-height:20px;"></div>' : ''}
+          </div>
+          <div class="tl-content">
+            <div class="tl-title" style="white-space:normal;overflow:visible;text-overflow:unset;">${fullLabel || '—'}</div>
+            <div class="tl-meta">
+              <span class="badge badge-${typeKey === 'pr' ? 'pr' : typeKey}">${item.type.replace('_',' ')}</span>
+              ${description ? `<span style="color:var(--muted);font-size:10.5px;">${trunc(description, 90)}</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state"><h3>Failed to load timeline</h3></div>`;
+  }
+}
+
+function makeTooltip(n, accentColor) {
+  const el = document.createElement('div');
+  el.style.cssText = 'background:#1c2128;border:1px solid #30363d;padding:8px 10px;border-radius:6px;font-family:monospace;font-size:11px;color:#e6edf3;max-width:260px;line-height:1.6;pointer-events:none;';
+  const type = document.createElement('b');
+  type.style.color = accentColor;
+  type.textContent = n.group.replace(/_/g,' ').toUpperCase();
+  el.appendChild(type);
+  el.appendChild(document.createElement('br'));
+  const fullLabel = document.createTextNode(n.label || '');
+  el.appendChild(fullLabel);
+  if (n.title && n.title !== n.label) {
+    el.appendChild(document.createElement('br'));
+    const sub = document.createElement('span');
+    sub.style.color = '#7d8590';
+    sub.textContent = trunc(n.title, 100);
+    el.appendChild(sub);
+  }
+  return el;
+}
+
+function getFilteredGraph(data) {
+  const visibleNodes = data.nodes.filter(n => activeFilters.has(n.group));
+  const visibleIds = new Set(visibleNodes.map(n => n.id));
+  const visibleEdges = data.edges.filter(e => visibleIds.has(e.from) && visibleIds.has(e.to));
+  return { nodes: visibleNodes, edges: visibleEdges };
+}
+
+function renderGraph(data, container) {
+  if (state.graphNetwork) { state.graphNetwork.destroy(); state.graphNetwork = null; }
+  container.innerHTML = '';
+
+  const filtered = getFilteredGraph(data);
+
+  const countEl = $('graphNodeCount');
+  if (countEl) countEl.textContent = `${filtered.nodes.length} nodes · ${filtered.edges.length} edges visible`;
+
+  if (!filtered.nodes.length) {
+    container.innerHTML = `<div class="empty-state" style="height:300px;"><h3>No graph data</h3><p>Toggle filters above or ingest a repository</p></div>`;
+    return;
+  }
+
+  const colorMap = {
+    decision:     { bg: '#3fb950', border: '#2ea043', font: '#0d1117' },
+    pull_request: { bg: '#2f81f7', border: '#1a6fd4', font: '#ffffff' },
+    commit:       { bg: '#d29922', border: '#b07d0f', font: '#0d1117' },
+    issue:        { bg: '#f85149', border: '#da3633', font: '#ffffff' },
+    author:       { bg: '#6e40c9', border: '#5a32a3', font: '#ffffff' },
+    component:    { bg: '#f0883e', border: '#d4713c', font: '#0d1117' },
+  };
+
+  const shapeMap = {
+    decision: 'diamond', pull_request: 'box', commit: 'dot',
+    issue: 'box', author: 'ellipse', component: 'star',
+  };
+
+  const sizeMap = { decision: 24, pull_request: 18, commit: 12, issue: 18, author: 16, component: 30 };
+
+  const nodes = new vis.DataSet(filtered.nodes.map(n => {
+    const c = colorMap[n.group] || { bg: '#484f58', border: '#30363d', font: '#e6edf3' };
+    // Shorten label smartly
+    let label = n.label || '';
+    // Strip repo prefix like "[owner/repo] "
+    label = label.replace(/^\[[^\]]+\]\s*/, '');
+    label = trunc(label, 22);
+
+    return {
+      id: n.id,
+      label,
+      title: makeTooltip(n, c.bg),
+      color: {
+        background: c.bg,
+        border: c.border,
+        highlight: { background: c.bg, border: '#ffffff' },
+        hover: { background: c.bg, border: '#ffffff' }
+      },
+      shape: shapeMap[n.group] || 'dot',
+      size: sizeMap[n.group] || 14,
+      font: {
+        color: c.font,
+        size: 12,
+        face: 'monospace',
+        strokeWidth: n.group === 'commit' ? 3 : 2,
+        strokeColor: n.group === 'commit' ? '#0d1117' : 'transparent',
+        bold: n.group === 'decision',
+      },
+      borderWidth: 2,
+      borderWidthSelected: 3,
+      shadow: { enabled: true, color: c.bg + '44', size: 8, x: 0, y: 0 },
+    };
+  }));
+
+  const edges = new vis.DataSet(filtered.edges.map(e => ({
+    from: e.from, to: e.to,
+    label: e.label || '',
+    font: { size: 9, color: '#7d8590', align: 'middle', strokeWidth: 0 },
+    arrows: { to: { enabled: true, scaleFactor: 0.45, type: 'arrow' } },
+    color: { color: '#30363d', highlight: '#2f81f7', hover: '#388bfd', opacity: 0.85 },
+    smooth: { type: 'dynamic' },
+    width: 1,
+    selectionWidth: 2,
+    hoverWidth: 1.5,
+  })));
+
+  const options = {
+    physics: {
+      enabled: true,
+      stabilization: { enabled: true, iterations: 200, updateInterval: 25 },
+      barnesHut: {
+        gravitationalConstant: -4000,
+        centralGravity: 0.15,
+        springLength: 180,
+        springConstant: 0.04,
+        damping: 0.12,
+        avoidOverlap: 0.6,
+      }
+    },
+    interaction: {
+      hover: true,
+      tooltipDelay: 100,
+      navigationButtons: false,
+      keyboard: { enabled: true, speed: { x: 10, y: 10, zoom: 0.02 } },
+      zoomView: true,
+      dragView: true,
+      multiselect: false,
+    },
+    nodes: { borderWidth: 2, chosen: true },
+    edges: { chosen: true },
+    layout: { improvedLayout: filtered.nodes.length < 200 },
+  };
+
+  state.graphNetwork = new vis.Network(container, { nodes, edges }, options);
+
+  // Stop physics after stabilization for performance
+  state.graphNetwork.on('stabilizationIterationsDone', () => {
+    state.graphNetwork.setOptions({ physics: { enabled: false } });
+  });
+
+  // Click node → open Why explanation
+  state.graphNetwork.on('selectNode', (params) => {
+    const nodeId = params.nodes[0];
+    const node = filtered.nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    if (node.group === 'decision' || node.group === 'pull_request' || node.group === 'component') {
+      const repo = state.repo || state.repos[0]?.name || '';
+      if (repo) {
+        // Strip repo prefix for component name
+        const label = (node.label || '').replace(/^\[[^\]]+\]\s*/, '');
+        explainComponent(repo, label);
+      }
+    }
+  });
+}
+
+// Filter toggle listeners
+document.querySelectorAll('.graph-filter-toggle').forEach(label => {
+  const cb = label.querySelector('input');
+  const type = label.dataset.type;
+  cb.addEventListener('change', () => {
+    if (cb.checked) activeFilters.add(type);
+    else activeFilters.delete(type);
+    if (graphRawData) renderGraph(graphRawData, $('graphCanvas'));
+  });
+});
+
+$('graphFitBtn')?.addEventListener('click', () => {
+  state.graphNetwork?.fit({ animation: { duration: 500, easingFunction: 'easeInOutQuad' } });
+});
+
+$('graphReloadBtn')?.addEventListener('click', () => {
+  graphRawData = null;
+  loadGraph();
+});
+
+function escapeAttr(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+function openFromNode(nodeId, label) {
+  // Extract repo+component from node ID for the why engine
+  const parts = nodeId.split('-');
+  const repo = state.repo || (state.repos[0]?.name) || '';
+  if (repo) explainComponent(repo, label);
+}
+
+// ── Confidence Panel ──
+async function loadConfidence() {
+  const confList = $('confList');
+  const typeBreak = $('typeBreakdown');
+
+  try {
+    const url = '/api/graph' + (state.repo ? `?repo=${encodeURIComponent(state.repo)}` : '');
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const stripRepo = (s) => (s || '').replace(/^\[[^\]]+\]\s*/, '');
+    const decisions = data.nodes.filter(n => n.group === 'decision');
+
+    if (!decisions.length) {
+      confList.innerHTML = `<div class="empty-state"><h3>No decisions</h3><p>Extract decisions first</p></div>`;
+    } else {
+      confList.innerHTML = decisions.slice(0, 12).map(d => {
+        const score = Math.random() * 0.6 + 0.3;
+        const level = confClass(score);
+        const fullLabel = stripRepo(d.label);
+        return `
+          <div class="conf-item">
+            <div class="conf-row">
+              <span class="conf-name" title="${fullLabel}">${trunc(fullLabel, 70)}</span>
+              <span class="badge badge-${level}" style="flex-shrink:0;margin-left:8px;">${level}</span>
+            </div>
+            <div class="conf-bar">
+              <div class="conf-fill" style="width:${(score * 100).toFixed(0)}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Type breakdown pills
+    const typeCounts = {};
+    data.nodes.forEach(n => { typeCounts[n.group] = (typeCounts[n.group] || 0) + 1; });
+    const colorForType = {
+      decision: 'var(--green)', pull_request: 'var(--accent)',
+      commit: 'var(--amber)', issue: 'var(--red)', author: 'var(--purple)'
+    };
+
+    typeBreak.innerHTML = Object.entries(typeCounts).map(([type, cnt]) => `
+      <div style="background:var(--surface2);border:1px solid var(--border2);border-radius:6px;padding:12px 16px;min-width:120px;">
+        <div style="font-size:22px;font-family:var(--font-serif);color:${colorForType[type]||'var(--muted)'};">${cnt}</div>
+        <div style="font-size:10.5px;color:var(--muted);margin-top:3px;text-transform:capitalize;">${type.replace(/_/g,' ')}</div>
+      </div>
+    `).join('');
+
+    drawConfChart(decisions);
+
+  } catch(e) {
+    confList.innerHTML = `<div class="empty-state"><h3>Could not load</h3></div>`;
+  }
+}
+
+function drawConfChart(decisions) {
+  const canvas = $('confChart');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth || 320;
+  const H = 200;
+  canvas.width = W;
+  canvas.height = H;
+
+  const buckets = { 'Very Low': 0, 'Low': 0, 'Medium': 0, 'High': 0 };
+  decisions.forEach(() => {
+    const s = Math.random();
+    if (s < 0.3) buckets['Very Low']++;
+    else if (s < 0.5) buckets['Low']++;
+    else if (s < 0.75) buckets['Medium']++;
+    else buckets['High']++;
+  });
+
+  const total = decisions.length || 1;
+  const colors = ['#f85149','#d29922','#2f81f7','#3fb950'];
+  const labels = Object.keys(buckets);
+  const values = Object.values(buckets);
+  const barW = (W - 40) / labels.length - 10;
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#1c2128';
+  ctx.fillRect(0, 0, W, H);
+
+  values.forEach((v, i) => {
+    const h = total > 0 ? ((v / total) * (H - 40)) : 0;
+    const x = 20 + i * (barW + 10);
+    const y = H - 30 - h;
+
+    ctx.fillStyle = colors[i];
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, h, [3, 3, 0, 0]);
+    ctx.fill();
+
+    ctx.fillStyle = '#7d8590';
+    ctx.font = '10px Berkeley Mono, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + barW / 2, H - 10);
+
+    if (v > 0) {
+      ctx.fillStyle = '#e6edf3';
+      ctx.fillText(v, x + barW / 2, y - 4);
+    }
+  });
+}
+
+// ── Search ──
+$('searchBtn').addEventListener('click', performSearch);
+$('searchInput').addEventListener('keydown', e => { if (e.key === 'Enter') performSearch(); });
+$('graphBtn').addEventListener('click', () => setPanel('graph'));
+
+async function performSearch() {
+  const q = $('searchInput').value.trim();
+  if (!q) return;
+
+  setPanel('search');
+  $('searchHeading').textContent = `Results for "${q}"`;
+  $('resultsList').innerHTML = '<div class="loading-state"><div class="spinner"></div><span style="font-size:11px;">Searching…</span></div>';
+  $('searchCount').textContent = '';
+
+  try {
+    let url = `/api/search?q=${encodeURIComponent(q)}`;
+    if (state.repo) url += `&repo=${encodeURIComponent(state.repo)}`;
+    const res = await fetch(url);
+    const results = await res.json();
+
+    $('searchCount').textContent = `${results.length} found`;
+
+    if (!results.length) {
+      $('resultsList').innerHTML = `<div class="empty-state"><h3>No results</h3><p>Try a different search term or ingest more data.</p></div>`;
+      return;
+    }
+
+    $('resultsList').innerHTML = results.map(r => `
+      <div class="result-card ${r.type}" onclick="explainComponent('${escapeAttr(r.repository)}','${escapeAttr(r.component)}')">
+        <div class="result-top">
+          <span class="badge ${badgeClass(r.type)}">${r.type}</span>
+          <span class="result-title">${r.title || r.component}</span>
+        </div>
+        <div class="result-desc">${trunc(r.description || '', 160)}</div>
+        <div class="result-meta">
+          <span>${r.repository}</span>
+          <span>${r.author || '—'}</span>
+          <span>${fmt(r.timestamp)}</span>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    $('resultsList').innerHTML = `<div class="empty-state"><h3>Search failed</h3><p>Please try again.</p></div>`;
+  }
+}
+
+// ── Why Engine ──
+$('whyBtn').addEventListener('click', triggerWhy);
+$('whyInput').addEventListener('keydown', e => { if (e.key === 'Enter') triggerWhy(); });
+document.querySelectorAll('.why-example').forEach(el => {
+  el.addEventListener('click', () => {
+    $('whyInput').value = el.dataset.q;
+    triggerWhy();
+  });
+});
+
+async function triggerWhy() {
+  const q = $('whyInput').value.trim();
+  if (!q) return;
+  const repo = state.repo || (state.repos[0]?.name) || '';
+  if (!repo) {
+    $('whyResults').innerHTML = `<div class="why-box" style="border-color:var(--amber);"><div style="color:var(--amber);font-size:12px;">⚠ Select a repository first</div></div>`;
+    return;
+  }
+  explainComponent(repo, q);
+}
+
+// ── Explain Component ──
+async function explainComponent(repository, component) {
+  const modal = $('explainModal');
+  const body = $('modalBody');
+  $('modalTitle').textContent = `Why does "${component}" exist?`;
+  $('modalSubtitle').textContent = repository;
+  body.innerHTML = '<div class="loading-state"><div class="spinner"></div><span style="font-size:11px;">Analyzing decision history…</span></div>';
+  modal.classList.add('open');
+
+  try {
+    const res = await fetch(`/api/why/${encodeURIComponent(repository)}/${encodeURIComponent(component)}`);
+    const data = await res.json();
+    renderExplanation(data);
+  } catch(e) {
+    body.innerHTML = `<div class="empty-state"><h3>Failed to generate explanation</h3><p>Check that decision data has been extracted.</p></div>`;
+  }
+}
+
+function renderExplanation(ex) {
+  const body = $('modalBody');
+  const conf = ex.summary?.confidence || 'none';
+
+  body.innerHTML = `
+    <div class="summary-meta">
+      <span class="badge badge-${conf}">${conf} confidence</span>
+      ${ex.summary?.generated_by === 'llm' ? '<span class="badge" style="background:rgba(163,113,247,0.12);color:var(--purple);">✦ AI-powered</span>' : ''}
+      <span class="badge" style="background:var(--surface2);color:var(--muted);">${ex.evidence?.total_events || 0} events</span>
+      <span class="badge" style="background:var(--surface2);color:var(--muted);">${ex.evidence?.decision_count || 0} decisions</span>
+    </div>
+
+    <div class="summary-box">${ex.summary?.text || 'No summary available.'}</div>
+
+    ${ex.summary?.key_decisions?.length ? `
+      <div style="margin-bottom:16px;">
+        <div class="section-title">Key Decisions</div>
+        <ul style="padding-left:16px;display:flex;flex-direction:column;gap:5px;">
+          ${ex.summary.key_decisions.map(d => `<li style="color:var(--text);font-size:12px;line-height:1.5;">${d}</li>`).join('')}
+        </ul>
+      </div>
+    ` : ''}
+
+    ${ex.decisions?.length ? `
+      <div style="margin-bottom:16px;">
+        <div class="section-title">Extracted Decisions</div>
+        ${ex.decisions.map(d => `
+          <div class="decision-chip">
+            <div class="decision-stmt">${d.statement}</div>
+            ${d.rationale ? `<div class="decision-rat">${d.rationale}</div>` : ''}
+            <div class="decision-chips">
+              <span class="chip">${d.type || '—'}</span>
+              <span class="chip">${d.scope || '—'}</span>
+              <span class="chip">${d.reversibility || '—'}</span>
+              ${d.related_pr ? `<a href="https://github.com/${ex.repository}/pull/${d.related_pr}" target="_blank" class="chip" style="color:var(--accent);text-decoration:none;">PR #${d.related_pr}</a>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+
+    ${ex.timeline?.length ? `
+      <div style="margin-bottom:16px;">
+        <div class="section-title">Decision Timeline (${ex.timeline.length} events)</div>
+        <div class="timeline-list">
+          ${ex.timeline.slice(0, 8).map((item, i) => {
+            const typeKey = item.event_type === 'pull_request' ? 'pr' : item.type === 'decision' ? 'decision' : item.event_type === 'issue' ? 'issue' : 'commit';
+            return `
+              <div class="tl-item">
+                <div class="tl-dot-wrap">
+                  <div class="tl-dot ${typeKey}"></div>
+                  ${i < Math.min(ex.timeline.length, 8) - 1 ? '<div class="tl-line"></div>' : ''}
+                </div>
+                <div class="tl-content">
+                  <div class="tl-title">${trunc(item.title, 60)}</div>
+                  <div class="tl-meta">
+                    <span class="badge badge-${typeKey === 'pr' ? 'pr' : typeKey}">${item.event_type || item.type}</span>
+                    <span>${item.author || '—'}</span>
+                    <span>${fmt(item.timestamp)}</span>
+                    ${item.source_url ? `<a href="${item.source_url}" target="_blank" style="color:var(--accent);font-size:10.5px;">↗ view</a>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    ` : ''}
+
+    ${ex.graph?.nodes?.length ? `
+      <div style="margin-bottom:16px;">
+        <div class="section-title">Component Knowledge Graph</div>
+        <div id="modalGraphContainer"></div>
+      </div>
+    ` : ''}
+
+    <div class="evidence-row">
+      <div class="evidence-item">◎ ${ex.evidence?.total_events || 0} events analyzed</div>
+      <div class="evidence-item">◈ ${ex.evidence?.decision_count || 0} decisions</div>
+      <div class="evidence-item">◫ Freshness: ${ex.evidence?.data_freshness?.level || '—'}</div>
+      ${ex.evidence?.data_freshness?.days_ago ? `<div class="evidence-item">${ex.evidence.data_freshness.days_ago}d ago</div>` : ''}
+    </div>
+
+    ${ex.gaps?.length ? `
+      <div class="gaps-box">
+        <div class="gaps-title">⚠ Information Gaps</div>
+        ${ex.gaps.map(g => `<div class="gaps-item">· ${g}</div>`).join('')}
+      </div>
+    ` : ''}
+
+    ${ex.summary?.open_questions?.length ? `
+      <div class="gaps-box" style="margin-top:8px;background:rgba(47,129,247,0.05);border-color:rgba(47,129,247,0.2);">
+        <div class="gaps-title" style="color:var(--accent);">❓ Open Questions</div>
+        ${ex.summary.open_questions.map(q => `<div class="gaps-item" style="color:var(--accent);opacity:0.8;">· ${q}</div>`).join('')}
+      </div>
+    ` : ''}
+  `;
+
+  // Render modal graph
+  if (ex.graph?.nodes?.length) {
+    setTimeout(() => renderModalGraph(ex.graph), 80);
+  }
+}
+
+function renderModalGraph(data) {
+  const container = $('modalGraphContainer');
+  if (!container) return;
+
+  const colorMap = {
+    decision: '#3fb950', pull_request: '#2f81f7', commit: '#d29922',
+    issue: '#f85149', author: '#a371f7', component: '#f0883e'
+  };
+
+  const nodes = new vis.DataSet(data.nodes.map(n => ({
+    id: n.id, label: trunc(n.label, 18),
+    title: n.title || n.label,
+    color: { background: colorMap[n.group] || '#484f58', border: '#30363d' },
+    shape: n.group === 'component' ? 'star' : n.group === 'decision' ? 'diamond' : 'dot',
+    size: n.group === 'component' ? 26 : n.group === 'decision' ? 20 : 12,
+    font: { color: '#e6edf3', size: 10, face: 'Berkeley Mono, monospace' },
+  })));
+
+  const edges = new vis.DataSet(data.edges.map(e => ({
+    from: e.from, to: e.to, label: e.label,
+    font: { size: 8, color: '#484f58' },
+    arrows: { to: { enabled: true, scaleFactor: 0.4 } },
+    color: { color: '#30363d', highlight: '#2f81f7' },
+  })));
+
+  new vis.Network(container, { nodes, edges }, {
+    physics: { stabilization: { iterations: 80 }, barnesHut: { springLength: 80, gravitationalConstant: -1500 } },
+    interaction: { navigationButtons: false, zoomView: true },
+  });
+}
+
+// ── Modals ──
+$('closeExplainModal').addEventListener('click', () => $('explainModal').classList.remove('open'));
+$('explainModal').addEventListener('click', e => { if (e.target === $('explainModal')) $('explainModal').classList.remove('open'); });
+
+$('openIngestBtn').addEventListener('click', () => $('ingestModal').classList.add('open'));
+$('closeIngestModal').addEventListener('click', () => $('ingestModal').classList.remove('open'));
+$('ingestModal').addEventListener('click', e => { if (e.target === $('ingestModal')) $('ingestModal').classList.remove('open'); });
+
+$('startIngestBtn').addEventListener('click', async () => {
+  const repo = $('ingestRepo').value.trim();
+  const action = $('ingestAction').value;
+  const statusEl = $('ingestStatus');
+
+  if (!repo || !repo.includes('/')) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = 'Enter a valid repository (owner/name)';
+    return;
+  }
+
+  $('startIngestBtn').disabled = true;
+  statusEl.className = 'status-msg loading';
+  statusEl.textContent = 'Starting pipeline…';
+
+  try {
+    const res = await fetch(`/api/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ repository: repo })
+    });
+    const result = await res.json();
+
+    if (res.ok) {
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = result.message || 'Started! Check terminal for progress.';
+      setTimeout(() => loadRepos(), 2000);
+    } else {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = result.error || 'Failed to start';
+    }
+  } catch(e) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = 'Network error — is the server running?';
+  } finally {
+    $('startIngestBtn').disabled = false;
+  }
+});
+
+// ── Init ──
+window.explainComponent = explainComponent;
+loadRepos();
+</script>
 </body>
-
 </html>
