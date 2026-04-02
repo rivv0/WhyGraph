@@ -1,12 +1,3 @@
-Viewed README.md:1-56
-
-Your draft is fundamentally **excellent** and extremely well-written! It explains the value proposition perfectly.
-
-The **ONLY** incorrect parts are the terminal commands you wrote. You mocked out commands like `graphengine analyze` and `graphengine ask`, but in reality, all of our commands are run through `npm run dev`. 
-
-I fixed the commands and the GitHub clone URL for you. Here is the **100% correct version** you should paste into your `README.md`:
-
-```markdown
 # GraphEngine
 
 > **"Why was this built this way?"**
