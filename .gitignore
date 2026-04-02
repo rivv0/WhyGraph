@@ -8,7 +8,7 @@ yarn-error.log*
 .env
 
 # Database files
-storage/*.db
+# storage/*.db (commented out so Render boots up with your current data)
 storage/*.db-shm
 storage/*.db-wal
 
