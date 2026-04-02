@@ -335,8 +335,8 @@ export class WhyEngine {
     return gaps;
   }
 
-  async getAvailableRepositories() {
-    const stats = await this.eventStore.getStats();
+  async getAvailableRepositories(username = null) {
+    const stats = await this.eventStore.getStats(username);
     return stats.byRepository.map(repo => ({
       name: repo.repository,
       event_count: repo.count
@@ -362,12 +362,24 @@ export class WhyEngine {
     return `https://github.com/${repo}`;
   }
 
-  async getGraphData(repository) {
-    console.log(`🌐 Generating graph data for: ${repository || 'all repositories'}`);
+  async getGraphData(repository, username = null) {
+    console.log(`🌐 Generating graph data for: ${repository || 'all repositories'} for user: ${username || 'all'}`);
+
+    let userRepos = null;
+    if (username) {
+      const stats = await this.eventStore.getStats(username);
+      userRepos = stats.byRepository.map(r => r.repository);
+      if (repository && !userRepos.includes(repository)) {
+        return { nodes: [], edges: [] };
+      }
+    }
 
     // Fetch all events and decisions (filtered if a repository is provided)
     const eventParams = repository ? { repository, limit: 1000 } : { limit: 1000 };
-    const events = await this.eventStore.getEvents(eventParams);
+    const allEvents = await this.eventStore.getEvents(eventParams);
+    
+    // Filter events by user access if needed
+    const events = userRepos ? allEvents.filter(e => userRepos.includes(e.repository)) : allEvents;
 
     let decisions = [];
     if (repository) {
@@ -379,6 +391,11 @@ export class WhyEngine {
       decisions = this.eventStore.db.prepare(`
         SELECT * FROM decisions 
       `).all() || [];
+    }
+    
+    // Filter decisions by user access
+    if (userRepos) {
+      decisions = decisions.filter(d => userRepos.includes(d.repository));
     }
 
     const nodes = [];

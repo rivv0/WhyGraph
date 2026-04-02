@@ -78,8 +78,44 @@ export class EventStore {
         VALUES (new.rowid, new.id, new.type, new.repository, 
                 new.data || ' ' || new.type || ' ' || new.action);
       END;
+
+      CREATE TABLE IF NOT EXISTS users (
+        username TEXT PRIMARY KEY,
+        password_hash TEXT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS user_repositories (
+        username TEXT,
+        repository TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (username, repository),
+        FOREIGN KEY (username) REFERENCES users(username)
+      );
     `);
   }
+
+  // --- User Auth Methods ---
+  async createUser(username, hash) {
+    const stmt = this.db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
+    stmt.run(username, hash);
+  }
+
+  async getUser(username) {
+    return this.db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  }
+
+  async linkUserToRepository(username, repository) {
+    if (!username) return;
+    const stmt = this.db.prepare('INSERT OR IGNORE INTO user_repositories (username, repository) VALUES (?, ?)');
+    stmt.run(username, repository);
+  }
+  
+  async checkUserAccess(username, repository) {
+    const result = this.db.prepare('SELECT count(*) as count FROM user_repositories WHERE username = ? AND repository = ?').get(username, repository);
+    return result.count > 0;
+  }
+  // -------------------------
 
   /**
    * Store multiple events in a single transaction (OPTIMIZED)
@@ -226,27 +262,50 @@ export class EventStore {
   /**
    * Get event statistics
    */
-  async getStats() {
-    const totalEvents = this.db.prepare('SELECT COUNT(*) as count FROM events').get();
+  async getStats(filterUsername = null) {
+    let repoCondition = "";
+    const params = [];
+    if (filterUsername) {
+      repoCondition = "WHERE repository IN (SELECT repository FROM user_repositories WHERE username = ?)";
+      params.push(filterUsername);
+    }
+    
+    const totalEvents = this.db.prepare(`SELECT COUNT(*) as count FROM events ${repoCondition}`).get(...params);
     
     const eventsByType = this.db.prepare(`
       SELECT type, COUNT(*) as count 
       FROM events 
+      ${repoCondition}
       GROUP BY type 
       ORDER BY count DESC
-    `).all();
+    `).all(...params);
 
     const eventsByRepo = this.db.prepare(`
       SELECT repository, COUNT(*) as count 
       FROM events 
+      ${repoCondition}
       GROUP BY repository 
       ORDER BY count DESC
-    `).all();
+    `).all(...params);
+
+    let finalRepos = eventsByRepo;
+    if (filterUsername) {
+      const userRepos = this.db.prepare('SELECT repository FROM user_repositories WHERE username = ?').all(filterUsername);
+      const repoMap = new Map(eventsByRepo.map(r => [r.repository, r]));
+      finalRepos = userRepos.map(ur => {
+        if (repoMap.has(ur.repository)) {
+           return repoMap.get(ur.repository);
+        } else {
+           return { repository: ur.repository, count: 0 };
+        }
+      });
+      finalRepos.sort((a,b) => b.count - a.count);
+    }
 
     return {
       total: totalEvents.count,
       byType: eventsByType,
-      byRepository: eventsByRepo
+      byRepository: finalRepos
     };
   }
 

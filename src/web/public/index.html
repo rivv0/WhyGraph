@@ -789,6 +789,8 @@
     </div>
 
     <div class="sidebar-footer">
+      <div id="userInfo" style="font-size:11px;color:var(--muted);margin-bottom:10px;text-align:center;">Not logged in</div>
+      <button class="topbar-btn" id="logoutBtn" style="width:100%;margin-bottom:8px;font-size:11.5px;display:none;">Logout</button>
       <button class="ingest-btn" id="openIngestBtn">
         <span>＋</span> Ingest Repository
       </button>
@@ -1066,6 +1068,33 @@
   </div>
 </div>
 
+<!-- ── AUTH MODAL ── -->
+<div class="modal-overlay" id="authModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-head">
+      <div class="modal-head-text">
+        <div class="modal-title">GraphEngine</div>
+        <div class="modal-subtitle">Log in to view your repositories</div>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="authUsername" placeholder="e.g. alice" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="authPassword" type="password" placeholder="••••••••" />
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="topbar-btn primary" id="loginBtn" style="flex:1;padding:9px;">Log In</button>
+        <button class="topbar-btn" id="registerBtn" style="flex:1;padding:9px;">Register</button>
+      </div>
+      <div class="status-msg" id="authStatus"></div>
+    </div>
+  </div>
+</div>
+
 <!-- TOOLTIP -->
 <div class="tooltip" id="tooltip"></div>
 
@@ -1084,7 +1113,23 @@ let state = {
   decisions: [],
   graph: null,
   repos: [],
-  graphNetwork: null
+  graphNetwork: null,
+  user: null
+};
+
+// ── Auth Fetch Interceptor ──
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  const response = await originalFetch(...args);
+  if (response.status === 401) {
+    $('authModal').classList.add('open');
+    $('userInfo').textContent = 'Not logged in';
+    $('logoutBtn').style.display = 'none';
+    state.user = null;
+  } else if (response.status === 403) {
+    alert("Forbidden: You do not have access to this resource.");
+  }
+  return response;
 };
 
 // ── Helpers ──
@@ -1982,7 +2027,74 @@ $('startIngestBtn').addEventListener('click', async () => {
 
 // ── Init ──
 window.explainComponent = explainComponent;
-loadRepos();
+
+// ── Auth ──
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/me');
+    if (res.ok) {
+      const data = await res.json();
+      state.user = data.username;
+      $('userInfo').textContent = `Logged in as: ${state.user}`;
+      $('logoutBtn').style.display = 'block';
+      $('authModal').classList.remove('open');
+      loadRepos();
+    } else {
+      $('authModal').classList.add('open');
+    }
+  } catch (e) {
+    console.error('Failed to check auth', e);
+  }
+}
+
+async function handleAuth(action) {
+  const username = $('authUsername').value.trim();
+  const password = $('authPassword').value;
+  const statusEl = $('authStatus');
+  
+  if (!username || !password) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = 'Please enter both username and password';
+    return;
+  }
+  
+  statusEl.className = 'status-msg loading';
+  statusEl.textContent = 'Authenticating...';
+  
+  try {
+    const res = await fetch(`/api/${action}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    
+    const data = await res.json();
+    if (res.ok) {
+      statusEl.className = 'status-msg success';
+      statusEl.textContent = 'Success!';
+      setTimeout(() => {
+        statusEl.style.display = 'none';
+        $('authPassword').value = '';
+        checkAuth();
+      }, 500);
+    } else {
+      statusEl.className = 'status-msg error';
+      statusEl.textContent = data.error || 'Authentication failed';
+    }
+  } catch (e) {
+    statusEl.className = 'status-msg error';
+    statusEl.textContent = 'Network error';
+  }
+}
+
+$('loginBtn').addEventListener('click', () => handleAuth('login'));
+$('registerBtn').addEventListener('click', () => handleAuth('register'));
+$('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.reload();
+});
+
+checkAuth();
 </script>
 </body>
 </html>

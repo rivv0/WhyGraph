@@ -5,10 +5,14 @@ import { EventStore } from '../storage/event-store.js';
 import { WhyEngine } from './why-engine.js';
 import { CodeTracer } from './code-tracer.js';
 import { DecisionMemorySystem } from '../index.js';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'graphs-are-cool-secret';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
 
 export class WhyServer {
   constructor(config = {}) {
@@ -24,13 +28,9 @@ export class WhyServer {
   }
 
   setupMiddleware() {
-    // Parse JSON bodies
     this.app.use(express.json());
-
-    // Serve static files
+    this.app.use(cookieParser());
     this.app.use(express.static(join(__dirname, 'public')));
-
-    // CORS for development
     this.app.use((req, res, next) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
@@ -49,17 +49,77 @@ export class WhyServer {
       res.sendFile(join(__dirname, 'public', 'index.html'));
     });
 
-    // API Routes
+    // --- Authentication ---
+    const requireAuth = (req, res, next) => {
+      const token = req.cookies.token;
+      if (!token) return res.status(401).json({ error: 'Unauthorized. Please log in.' });
+      try {
+        req.user = jwt.verify(token, JWT_SECRET);
+        next();
+      } catch (err) {
+        res.status(401).json({ error: 'Invalid token. Please log in again.' });
+      }
+    };
 
-    // Search for code/components
-    this.app.get('/api/search', async (req, res) => {
+    const checkAccess = async (req, res, next) => {
+      const repoParam = req.params.repository || req.body.repository || req.query.repo;
+      if (repoParam) {
+        const decodedRepo = decodeURIComponent(repoParam);
+        const hasAccess = await this.eventStore.checkUserAccess(req.user.username, decodedRepo);
+        if (!hasAccess) {
+          return res.status(403).json({ error: 'Forbidden: You do not have access to this repository or it does not exist in your account.' });
+        }
+      }
+      next();
+    };
+
+    this.app.post('/api/register', async (req, res) => {
+      try {
+        const { username, password } = req.body;
+        if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+        const existing = await this.eventStore.getUser(username);
+        if (existing) return res.status(400).json({ error: 'Username already taken' });
+        const hash = await bcrypt.hash(password, 10);
+        await this.eventStore.createUser(username, hash);
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
+        res.cookie('token', token, { httpOnly: true, sameSite: 'strict' }).json({ username });
+      } catch (e) {
+        console.error('Registration error:', e);
+        res.status(500).json({ error: 'Registration failed' });
+      }
+    });
+
+    this.app.post('/api/login', async (req, res) => {
+      try {
+        const { username, password } = req.body;
+        const user = await this.eventStore.getUser(username);
+        if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+          return res.status(401).json({ error: 'Invalid credentials' });
+        }
+        const token = jwt.sign({ username }, JWT_SECRET, { expiresIn: '7d' });
+        res.cookie('token', token, { httpOnly: true, sameSite: 'strict' }).json({ username });
+      } catch (e) {
+        console.error('Login error:', e);
+        res.status(500).json({ error: 'Login failed' });
+      }
+    });
+
+    this.app.post('/api/logout', (req, res) => {
+      res.clearCookie('token').json({ message: 'Logged out successfully' });
+    });
+
+    this.app.get('/api/me', requireAuth, (req, res) => {
+      res.json({ username: req.user.username });
+    });
+    // -----------------------
+
+
+    // API Routes (Protected)
+
+    this.app.get('/api/search', requireAuth, checkAccess, async (req, res) => {
       try {
         const { q: query, repo } = req.query;
-
-        if (!query) {
-          return res.status(400).json({ error: 'Query parameter required' });
-        }
-
+        if (!query) return res.status(400).json({ error: 'Query parameter required' });
         const results = await this.codeTracer.searchCodeComponents(query, repo);
         res.json(results);
       } catch (error) {
@@ -68,13 +128,11 @@ export class WhyServer {
       }
     });
 
-    // Get the "why" for a specific component
-    this.app.get('/api/why/:repository/:component', async (req, res) => {
+    this.app.get('/api/why/:repository/:component', requireAuth, checkAccess, async (req, res) => {
       try {
         const { repository, component } = req.params;
         const decodedRepo = decodeURIComponent(repository);
         const decodedComponent = decodeURIComponent(component);
-
         const explanation = await this.whyEngine.explainComponent(decodedRepo, decodedComponent);
         res.json(explanation);
       } catch (error) {
@@ -83,13 +141,11 @@ export class WhyServer {
       }
     });
 
-    // Get decision timeline for a component
-    this.app.get('/api/timeline/:repository/:component', async (req, res) => {
+    this.app.get('/api/timeline/:repository/:component', requireAuth, checkAccess, async (req, res) => {
       try {
         const { repository, component } = req.params;
         const decodedRepo = decodeURIComponent(repository);
         const decodedComponent = decodeURIComponent(component);
-
         const timeline = await this.whyEngine.getDecisionTimeline(decodedRepo, decodedComponent);
         res.json(timeline);
       } catch (error) {
@@ -98,10 +154,10 @@ export class WhyServer {
       }
     });
 
-    // Get evidence for a specific decision
-    this.app.get('/api/evidence/:decisionId', async (req, res) => {
+    this.app.get('/api/evidence/:decisionId', requireAuth, async (req, res) => {
       try {
         const { decisionId } = req.params;
+        // Ideally we would verify the decision's repo access here
         const evidence = await this.whyEngine.getDecisionEvidence(decisionId);
         res.json(evidence);
       } catch (error) {
@@ -110,10 +166,10 @@ export class WhyServer {
       }
     });
 
-    // Get repositories with decision data
-    this.app.get('/api/repositories', async (req, res) => {
+    this.app.get('/api/repositories', requireAuth, async (req, res) => {
       try {
-        const repos = await this.whyEngine.getAvailableRepositories();
+        // Pass username to get ONLY user's repositories
+        const repos = await this.whyEngine.getAvailableRepositories(req.user.username);
         res.json(repos);
       } catch (error) {
         console.error('Repositories error:', error);
@@ -121,13 +177,12 @@ export class WhyServer {
       }
     });
 
-    // Get graph nodes and edges for visualizing relationships
-    this.app.get('/api/graph', async (req, res) => {
+    this.app.get('/api/graph', requireAuth, checkAccess, async (req, res) => {
       try {
         const repoParam = req.query.repo;
         const repository = repoParam ? decodeURIComponent(repoParam) : null;
-
-        const graphData = await this.whyEngine.getGraphData(repository);
+        // Pass username to getGraphData
+        const graphData = await this.whyEngine.getGraphData(repository, req.user.username);
         res.json(graphData);
       } catch (error) {
         console.error('Graph data error:', error);
@@ -137,8 +192,7 @@ export class WhyServer {
 
     // System processing routes
 
-    // Ingest data from a repository
-    this.app.post('/api/ingest', async (req, res) => {
+    this.app.post('/api/ingest', requireAuth, async (req, res) => {
       try {
         const { repository, options } = req.body;
         if (!repository || !repository.includes('/')) {
@@ -146,22 +200,26 @@ export class WhyServer {
         }
 
         const [owner, repo] = repository.split('/');
-
+        
         // Return 202 Accepted and process in background
         res.status(202).json({ message: 'Ingestion started in background' });
 
         try {
-          // Add default options if not provided
           const ingestOptions = options || {
             maxPRs: 50,
             maxCommits: 100,
             maxIssues: 25,
-            skipComments: true, // Skip comments for speed by default
+            skipComments: true,
             batchSize: 100
           };
 
-          console.log(`[Web API] Starting background ingestion for ${repository}`);
+          console.log(`[Web API] Starting background ingestion for ${repository} by ${req.user.username}`);
+          
+          // Link this repository to the user FIRST so they see it right away
+          await this.eventStore.linkUserToRepository(req.user.username, repository);
+
           await this.system.ingestRepository(owner, repo, ingestOptions);
+          
           console.log(`[Web API] Completed background ingestion for ${repository}`);
         } catch (bgError) {
           console.error(`[Web API] Background ingestion failed for ${repository}:`, bgError);
@@ -172,8 +230,7 @@ export class WhyServer {
       }
     });
 
-    // Normalize events for a repository
-    this.app.post('/api/normalize', async (req, res) => {
+    this.app.post('/api/normalize', requireAuth, checkAccess, async (req, res) => {
       try {
         const { repository } = req.body;
         if (!repository || !repository.includes('/')) {
@@ -198,8 +255,7 @@ export class WhyServer {
       }
     });
 
-    // Extract decisions for a repository
-    this.app.post('/api/extract', async (req, res) => {
+    this.app.post('/api/extract', requireAuth, checkAccess, async (req, res) => {
       try {
         const { repository } = req.body;
         if (!repository || !repository.includes('/')) {
@@ -224,8 +280,7 @@ export class WhyServer {
       }
     });
 
-    // Run full pipeline for a repository
-    this.app.post('/api/process-all', async (req, res) => {
+    this.app.post('/api/process-all', requireAuth, async (req, res) => {
       try {
         const { repository, options } = req.body;
         if (!repository || !repository.includes('/')) {
@@ -234,7 +289,6 @@ export class WhyServer {
 
         const [owner, repo] = repository.split('/');
 
-        // Return 202 Accepted and process in background
         res.status(202).json({ message: 'Full pipeline processing started in background' });
 
         try {
@@ -246,8 +300,13 @@ export class WhyServer {
             batchSize: 100
           };
 
-          console.log(`[Web API] Starting full pipeline for ${repository}`);
+          console.log(`[Web API] Starting full pipeline for ${repository} by ${req.user.username}`);
+          
+          // Link this repository to the user FIRST so they see it right away
+          await this.eventStore.linkUserToRepository(req.user.username, repository);
+
           await this.system.ingestRepository(owner, repo, ingestOptions);
+          
           await this.system.normalizeRepository(owner, repo);
           await this.system.extractDecisions(owner, repo);
           console.log(`[Web API] Completed full pipeline for ${repository}`);
