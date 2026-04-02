@@ -263,6 +263,52 @@ async function main() {
         await system.searchEvents(args[1]);
         break;
 
+      case 'why':
+        if (args.length < 4) {
+          console.error('Usage: npm run dev why <owner> <repo> <component>');
+          console.error('Example: npm run dev why facebook react useCache');
+          process.exit(1);
+        }
+        
+        const { WhyEngine } = await import('./web/why-engine.js');
+        const whyEngine = new WhyEngine(system.eventStore);
+        const repoFullName = `${args[1]}/${args[2]}`;
+        
+        const explanation = await whyEngine.explainComponent(repoFullName, args[3]);
+        
+        console.log(`\n======================================================`);
+        console.log(`🧠 WHY DOES THIS EXIST: "${args[3]}" in ${repoFullName}`);
+        console.log(`======================================================\n`);
+        
+        console.log(`[Summary]`);
+        console.log(explanation.summary?.text || 'No summary available.');
+        
+        if (explanation.summary?.key_decisions?.length) {
+          console.log(`\n[Key Decisions]`);
+          explanation.summary.key_decisions.forEach(d => console.log(`• ${d}`));
+        }
+
+        console.log(`\n[Evidence]`);
+        console.log(`- Events Analyzed: ${explanation.evidence.total_events}`);
+        console.log(`- Decisions Found: ${explanation.evidence.decision_count}`);
+        
+        if (explanation.decisions?.length) {
+          console.log(`\n[Extracted Decisions]`);
+          explanation.decisions.slice(0, 5).forEach(d => {
+            console.log(`\n- ${d.statement}`);
+            if (d.rationale) console.log(`  Reason: ${d.rationale}`);
+            console.log(`  Source: ${d.type} by ${d.author}`);
+          });
+        }
+        
+        if (explanation.gaps?.length) {
+          console.log(`\n[Information Gaps ⚠]`);
+          explanation.gaps.forEach(g => console.log(`• ${g}`));
+        }
+        
+        console.log(`\n`);
+        break;
+
       default:
         console.log(`
 🧠 Engineering Decision Memory System
@@ -275,8 +321,10 @@ Available commands:
   web                       - Start web interface
   status                    - Show system status and statistics  
   search <term>             - Search events by content
+  why <owner> <repo> <comp> - Run WhyEngine from the terminal to explain a component
 
 Examples:
+  npm run dev why facebook react useCache   # Explain a specific component
   npm run dev ingest-fast facebook react    # Fast ingestion (~2-5 minutes)
   npm run dev ingest facebook react         # Full ingestion (~5-15 minutes)
   npm run dev normalize facebook react
